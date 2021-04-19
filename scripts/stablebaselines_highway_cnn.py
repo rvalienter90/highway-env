@@ -1,7 +1,7 @@
 import gym
 from stable_baselines3 import DQN
 from stable_baselines3.common.vec_env import VecVideoRecorder
-
+import highway_env
 
 if __name__ == '__main__':
     # Train
