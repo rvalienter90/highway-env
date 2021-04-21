@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.vec_env import SubprocVecEnv
+from rl_agents.trainer.evaluation import Evaluation
 import highway_env
 
 # ==================================
@@ -299,12 +300,49 @@ env_kwargs = {
 }
 
 
+def evaluate(env,model):
+    agent_test = None
+    run_directory = None
+    options ={ "--episodes_test": 400,
+               "--seed":None,
+               "--recover":False,
+               "--recover-from": False,
+               "--no-display": True,
+               "--name-from-envconfig": True,
+               "--model_save_freq": 50,
+               "--video_save_freq" : 5,
+               "--create_episode_log": True,
+               "--individual_episode_log_level": 2,
+               "--create_timestep_log ": False,
+               "--individual_reward_tensorboard": False,
+               "--create_timestep_log": False,
+               "--timestep_log_freq": False,
+               "--episodes": 1000,
+               "--environment": "stablebaselines_highway_attention_ppo"
+
+    }
+
+    evaluation_test = Evaluation(env,
+                                 agent_test,
+                                 run_directory=run_directory,
+                                 num_episodes=int(options['--episodes_test']),
+                                 sim_seed=options['--seed'],
+                                 recover=options['--recover'] or options['--recover-from'],
+                                 display_env=not options['--no-display'],
+                                 display_agent=not options['--no-display'],
+                                 display_rewards=not options['--no-display'],
+                                 training=False,
+                                 model =model,
+                                 options=options
+                                 )
+    evaluation_test.test()
+
 # ==================================
 #        Main script
 # ==================================
 
 if __name__ == "__main__":
-    train = True
+    train = False
     if train:
         n_cpu = 4
         policy_kwargs = dict(
@@ -326,6 +364,8 @@ if __name__ == "__main__":
 
     model = PPO.load("ppo-highway")
     env = make_configure_env(**env_kwargs)
+
+    evaluate(env, model)
     for _ in range(5):
         obs = env.reset()
         done = False
@@ -333,3 +373,5 @@ if __name__ == "__main__":
             action, _ = model.predict(obs)
             obs, reward, done, info = env.step(action)
             env.render()
+
+

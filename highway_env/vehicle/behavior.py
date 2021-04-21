@@ -51,8 +51,10 @@ class IDMVehicle(ControlledVehicle):
                  target_speed: float = None,
                  route: Route = None,
                  enable_lane_change: bool = True,
-                 timer: float = None):
-        super().__init__(road, position, heading, speed, target_lane_index, target_speed, route)
+                 timer: float = None,
+                 config={},
+                 id: int =0):
+        super().__init__(road, position, heading, speed, target_lane_index, target_speed, route, config, id)
         self.enable_lane_change = enable_lane_change
         self.timer = timer or (np.sum(self.position)*np.pi) % self.LANE_CHANGE_DELAY
 
@@ -296,6 +298,105 @@ class IDMVehicle(ControlledVehicle):
                 return -self.COMFORT_ACC_MAX / 2
         return acceleration
 
+
+class CustomVehicle(IDMVehicle):
+    # Longitudinal policy parameters
+    ACC_MAX = 6.0  # [m/s2]
+    """Maximum acceleration."""
+
+    COMFORT_ACC_MAX = 4.0  # [m/s2]
+    """Desired maximum acceleration."""
+
+    COMFORT_ACC_MIN = -12.0  # [m/s2]
+    """Desired maximum deceleration."""
+
+    DISTANCE_WANTED = 1.0 + ControlledVehicle.LENGTH  # [m]
+    """Desired jam distance to the front vehicle."""
+
+    TIME_WANTED = 1  # [s]
+    """Desired time gap to the front vehicle."""
+
+    DELTA = 4.0  # []
+    """Exponent of the velocity term."""
+
+    def __init__(self,
+                 road: Road,
+                 position: Vector,
+                 heading: float = 0,
+                 speed: float = 0,
+                 target_lane_index: int = None,
+                 target_speed: float = None,
+                 route: Route = None,
+                 enable_lane_change: bool = True,
+                 timer: float = None,
+                 id: int = 0,
+                 config={},
+                 v_type='cruising_vehicle'
+                 ):
+        super().__init__(road, position, heading, speed, target_lane_index, target_speed, route,
+                         enable_lane_change, timer, config, id)
+        if len(config):
+            acc_max = config[v_type]['acc_max']
+            comfort_acc_max = config[v_type]['comfort_acc_max']
+            comfort_acc_min = config[v_type]['comfort_acc_min']
+            distance_wanted = config[v_type]['distance_wanted']
+            time_wanted = config[v_type]['time_wanted']
+            delta = config[v_type]['delta']
+
+            length = config[v_type]['length']
+            width = config[v_type]['width']
+            max_speed = config[v_type]['max_speed']
+            # speed_min
+            # speed_max
+
+
+            self.ACC_MAX = acc_max
+            self.COMFORT_ACC_MIN = comfort_acc_min
+            self.COMFORT_ACC_MAX = comfort_acc_max
+            self.DISTANCE_WANTED = distance_wanted + ControlledVehicle.LENGTH
+            self.TIME_WANTED = time_wanted
+            self.DELTA = delta
+
+            self.MAX_SPEED = max_speed
+            self.LENGTH = length
+            self.WIDTH = width
+
+    @classmethod
+    def create_random_in_a_lane(cls, road: Road, lane_index, speed: float = None, spacing: float = 1,enable_lane_change=False,config={},id: int =0) \
+            -> "Vehicle":
+
+        if speed is None:
+            speed = road.np_random.uniform(Vehicle.DEFAULT_SPEEDS[0], Vehicle.DEFAULT_SPEEDS[1])
+        default_spacing = 1.5*speed
+        _from = lane_index[0]
+        _to = lane_index[1]
+        _id = lane_index[2]
+        lane = road.network.get_lane((_from, _to, _id))
+        offset = spacing * default_spacing * np.exp(-5 / 30 * len(road.network.graph[_from][_to]))
+        x0 = np.max([lane.local_coordinates(v.position)[0] for v in road.vehicles]) \
+            if len(road.vehicles) else 3*offset
+        x0 += offset * road.np_random.uniform(0.9, 1.1)
+        v = cls(road, lane.position(x0, 0), heading=lane.heading_at(x0), speed=speed, enable_lane_change=enable_lane_change,config=config, id=id)
+
+        return v
+
+    def create_random(cls, road: Road, lane_index, speed: float = None, spacing: float = 1,enable_lane_change=False,config={},id: int =0) \
+            -> "Vehicle":
+
+        if speed is None:
+            speed = road.np_random.uniform(Vehicle.DEFAULT_SPEEDS[0], Vehicle.DEFAULT_SPEEDS[1])
+        default_spacing = 1.5*speed
+        _from = lane_index[0]
+        _to = lane_index[1]
+        _id = lane_index[2]
+        lane = road.network.get_lane((_from, _to, _id))
+        offset = spacing * default_spacing * np.exp(-5 / 30 * len(road.network.graph[_from][_to]))
+        x0 = np.max([lane.local_coordinates(v.position)[0] for v in road.vehicles]) \
+            if len(road.vehicles) else 3*offset
+        x0 += offset * road.np_random.uniform(0.9, 1.1)
+        v = cls(road, lane.position(x0, 0), heading=lane.heading_at(x0), speed=speed, enable_lane_change=enable_lane_change,config=config, id=id)
+
+        return v
 
 class LinearVehicle(IDMVehicle):
 

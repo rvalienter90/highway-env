@@ -38,8 +38,10 @@ class ControlledVehicle(Vehicle):
                  speed: float = 0,
                  target_lane_index: LaneIndex = None,
                  target_speed: float = None,
-                 route: Route = None):
-        super().__init__(road, position, heading, speed)
+                 route: Route = None,
+                 config={},
+                 id: int =0,):
+        super().__init__(road, position, heading, speed, config, id)
         self.target_lane_index = target_lane_index or self.lane_index
         self.target_speed = target_speed or self.speed
         self.route = route
@@ -215,10 +217,13 @@ class MDPVehicle(ControlledVehicle):
                  speed: float = 0,
                  target_lane_index: LaneIndex = None,
                  target_speed: float = None,
-                 route: Route = None) -> None:
-        super().__init__(road, position, heading, speed, target_lane_index, target_speed, route)
+                 route: Route = None,
+                 config={},
+                 id: int =0) -> None:
+        super().__init__(road, position, heading, speed, target_lane_index, target_speed, route,config, id)
         self.speed_index = self.speed_to_index(self.target_speed)
         self.target_speed = self.index_to_speed(self.speed_index)
+        self.is_controlled = 1  # 1 agent, 0 human
 
     def act(self, action: Union[dict, str] = None) -> None:
         """

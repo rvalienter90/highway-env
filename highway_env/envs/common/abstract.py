@@ -14,7 +14,7 @@ from highway_env.envs.common.graphics import EnvViewer
 from highway_env.vehicle.behavior import IDMVehicle, LinearVehicle
 from highway_env.vehicle.controller import MDPVehicle
 from highway_env.vehicle.kinematics import Vehicle
-
+from highway_env.envs.common.missions import MissionFactory
 Observation = np.ndarray
 
 
@@ -67,6 +67,16 @@ class AbstractEnv(gym.Env):
         self.should_update_rendering = True
         self.rendering_mode = 'human'
         self.enable_auto_render = False
+
+        # Modifications
+        self.reward_info = [{"None":0}]
+        self.mission_accomplished = None
+        self.options = None
+
+        # Mission (has_merged, etc)
+        self.mission_accomplished = None
+        self.mission_vehicle = None
+        self.mission_type = MissionFactory(self)
 
         self.reset()
 
@@ -149,13 +159,56 @@ class AbstractEnv(gym.Env):
 
         :param obs: current observation
         :param action: current action
+        :param steps: current step
         :return: info dict
         """
         info = {
             "speed": self.vehicle.speed,
             "crashed": self.vehicle.crashed,
             "action": action,
+
+            'timestep': self.steps,
+            'vehicle_ids': [],
+            'vehicle_is_controlled': [],
+            'vehicle_speeds': [],
+            'vehicle_distances': [],
+            'vehicle_crashed': [],
+
+            'reward_ids': [],
+            'mission_accomplished': None,
+            'collision_count': None,
+            'vehicle_info_debug': []
         }
+
+        for controlled_vehicle in self.controlled_vehicles:
+            info['reward_ids'].append(controlled_vehicle.id)
+
+        for vehicle in self.road.vehicles:
+            info['vehicle_ids'].append(vehicle.id)
+            info['vehicle_is_controlled'].append(vehicle.is_controlled)
+            info['vehicle_speeds'].append(vehicle.speed)
+            info['vehicle_distances'].append(vehicle.distance_to_front)
+            info['vehicle_crashed'].append(vehicle.crashed)
+
+            vehicle_info_debug = {
+                'positionx': vehicle.position[0],
+                'positiony': vehicle.position[1],
+                'position': copy.deepcopy(vehicle.position),
+                'heading': vehicle.heading,
+                'speed': vehicle.speed,
+                'vx': vehicle.speed * np.cos(vehicle.heading),
+                'vy': vehicle.speed * np.sin(vehicle.heading),
+                'lane_index': vehicle.lane_index
+            }
+            info['vehicle_info_debug'].append(vehicle_info_debug)
+
+        # specific reward_info from the environment
+        info['reward_info'] = self.reward_info
+
+        # based on the mission defined
+        info['mission_accomplished'] = None if self.mission_accomplished is None else int(self.mission_accomplished)
+        info['collision_count'] = sum(info['vehicle_crashed'])
+
         try:
             info["cost"] = self._cost(action)
         except NotImplementedError:
@@ -209,6 +262,10 @@ class AbstractEnv(gym.Env):
 
         self.steps += 1
         self._simulate(action)
+
+        if "scenario" in self.config:
+            self.mission_accomplished, self.mission_vehicle = self.mission_type \
+                .check_mission_accomplished(self.config["scenario"]["mission_type"])
 
         obs = self.observation_type.observe()
         reward = self._reward(action)

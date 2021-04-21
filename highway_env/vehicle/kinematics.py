@@ -9,7 +9,6 @@ from highway_env.types import Vector
 
 
 class Vehicle(RoadObject):
-
     """
     A moving vehicle on a road, and its kinematics.
 
@@ -33,13 +32,20 @@ class Vehicle(RoadObject):
                  road: Road,
                  position: Vector,
                  heading: float = 0,
-                 speed: float = 0):
+                 speed: float = 0,
+                 config={},
+                 id: int = 0):
         super().__init__(road, position, heading, speed)
         self.action = {'steering': 0, 'acceleration': 0}
         self.crashed = False
         self.impact = None
         self.log = []
         self.history = deque(maxlen=30)
+
+        self.id = id  # vehicle id
+        self.is_controlled = 0  # 1 agent, 0 human
+        self.distance_to_front = None  # None value means there is no other vehicle in front of this vehicle
+
 
     @classmethod
     def make_on_lane(cls, road: Road, lane_index: LaneIndex, longitudinal: float, speed: float = 0) -> "Vehicle":
@@ -85,13 +91,13 @@ class Vehicle(RoadObject):
         lane = road.network.get_lane((_from, _to, _id))
         if speed is None:
             if lane.speed_limit is not None:
-                speed = road.np_random.uniform(0.7*lane.speed_limit, lane.speed_limit)
+                speed = road.np_random.uniform(0.7 * lane.speed_limit, lane.speed_limit)
             else:
                 speed = road.np_random.uniform(Vehicle.DEFAULT_SPEEDS[0], Vehicle.DEFAULT_SPEEDS[1])
-        default_spacing = 15+1.2*speed
+        default_spacing = 15 + 1.2 * speed
         offset = spacing * default_spacing * np.exp(-5 / 40 * len(road.network.graph[_from][_to]))
         x0 = np.max([lane.local_coordinates(v.position)[0] for v in road.vehicles]) \
-            if len(road.vehicles) else 3*offset
+            if len(road.vehicles) else 3 * offset
         x0 += offset * road.np_random.uniform(0.9, 1.1)
         v = cls(road, lane.position(x0, 0), lane.heading_at(x0), speed)
         return v
@@ -145,7 +151,7 @@ class Vehicle(RoadObject):
     def clip_actions(self) -> None:
         if self.crashed:
             self.action['steering'] = 0
-            self.action['acceleration'] = -1.0*self.speed
+            self.action['acceleration'] = -1.0 * self.speed
         self.action['steering'] = float(self.action['steering'])
         self.action['acceleration'] = float(self.action['acceleration'])
         if self.speed > self.MAX_SPEED:
@@ -195,7 +201,7 @@ class Vehicle(RoadObject):
     def _is_colliding(self, other, dt):
         # Fast spherical pre-check
         if np.linalg.norm(other.position - self.position) > self.LENGTH + self.speed * dt:
-            return False, False, np.zeros(2,)
+            return False, False, np.zeros(2, )
         # Accurate rectangular check
         return utils.are_polygons_intersecting(self.polygon(), other.polygon(), self.velocity * dt, other.velocity * dt)
 
