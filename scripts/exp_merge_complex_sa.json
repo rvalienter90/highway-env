@@ -1,0 +1,23 @@
+{
+  "info": "exp_merge_complex",
+  "additional_folder_name": "exp_merge_complex",
+  "base_config": "exp_merge_complex_base_ma.json",
+
+  "observation": {
+    "type": "GrayscaleObservation",
+    "stack_size": 4,
+    "weights": [0.2989, 0.5870, 0.1140],
+    "scaling": 1.75
+  },
+    "action": {
+      "type": "DiscreteMetaAction",
+      "longitudinal": true,
+      "lateral": false,
+      "fast": false,
+      "stop": false
+  },
+
+  "controlled_vehicles": 1
+
+
+}
