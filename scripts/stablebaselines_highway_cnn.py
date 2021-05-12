@@ -15,7 +15,7 @@ def evaluate(env,model):
                "--no-display": True,
                "--name-from-envconfig": True,
                "--model_save_freq": 50,
-               "--video_save_freq" : 5,
+               "--video_save_freq" : 1,
                "--create_episode_log": True,
                "--individual_episode_log_level": 2,
                "--create_timestep_log ": False,
@@ -38,6 +38,7 @@ def evaluate(env,model):
                                  display_rewards=not options['--no-display'],
                                  training=False,
                                  model =model,
+                                 test_stable_baseline=True,
                                  options=options
                                  )
     evaluation_test.test()
@@ -75,8 +76,8 @@ if __name__ == '__main__':
         model.save("dqn_highway")
 
     # Record video
-    model = DQN.load("dqn_highway")
-    env.configure({"policy_frequency": 15, "duration": 20 * 15})
+    model = DQN.load("dqn_highwayv0")
+    # env.configure({"policy_frequency": 15, "duration": 20 * 15})
     # video_length = 2 * env.config["duration"]
     # env = VecVideoRecorder(env, "videos/",
     #                        record_video_trigger=lambda x: x == 0, video_length=video_length,

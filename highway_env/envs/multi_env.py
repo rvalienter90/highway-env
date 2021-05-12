@@ -84,8 +84,9 @@ class MultiEnv(AbstractEnv):
         self.road = scenario.road
         self.road.options = self.options
         # self.road.training = self.training
-        if self.config["observation"]["observation_config"]["type"] == "HeatmapObservation":
-            self.road_layout = self._get_road_layout()
+        if "observation_config" in self.config["observation"]:
+            if self.config["observation"]["observation_config"]["type"] == "HeatmapObservation":
+                self.road_layout = self._get_road_layout()
         self.controlled_vehicles = scenario.controlled_vehicles
 
     def _reward(self, action: int):
@@ -109,13 +110,15 @@ class MultiEnv(AbstractEnv):
         if (cooperative_flag and sympathy_flag)  or self.training == False:
             # testi = 1
             return any(vehicle.crashed for vehicle in self.road.vehicles) \
-                   or self.steps >= self.config["duration"] * self.config["policy_frequency"] \
+                   or self.steps >= self.config["duration"] \
                    or (self.config["offroad_terminal"] and not self.vehicle.on_road)
+                   # or self.steps >= self.config["duration"] * self.config["policy_frequency"] \
+
         else:
             # TODO improve for coop
             # testi=1
             return any(vehicle.crashed for vehicle in self.controlled_vehicles) \
-                   or self.steps >= self.config["duration"] * self.config["policy_frequency"] \
+                   or self.steps >= self.config["duration"] \
                    or (self.config["offroad_terminal"] and not self.vehicle.on_road)
 
     def _cost(self, action: int) -> float:

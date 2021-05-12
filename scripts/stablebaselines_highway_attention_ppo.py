@@ -310,7 +310,7 @@ def evaluate(env,model):
                "--no-display": True,
                "--name-from-envconfig": True,
                "--model_save_freq": 50,
-               "--video_save_freq" : 5,
+               "--video_save_freq" : 1,
                "--create_episode_log": True,
                "--individual_episode_log_level": 2,
                "--create_timestep_log ": False,
@@ -333,6 +333,7 @@ def evaluate(env,model):
                                  display_rewards=not options['--no-display'],
                                  training=False,
                                  model =model,
+                                 test_stable_baseline=True,
                                  options=options
                                  )
     evaluation_test.test()
@@ -362,7 +363,7 @@ if __name__ == "__main__":
         # Save the agent
         model.save("ppo-highway")
 
-    model = PPO.load("ppo-highway")
+    model = PPO.load("ppo-highwayv0")
     env = make_configure_env(**env_kwargs)
 
     evaluate(env, model)

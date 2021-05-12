@@ -21,3 +21,6 @@ _build
 
 # Outputs
 **/out/*
+/scripts/highway_attention_ppo/
+/scripts/logs/
+/scripts/models/

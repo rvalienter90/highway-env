@@ -38,6 +38,7 @@ class EnvViewer(object):
         self.sim_surface.centering_position = self.config.get("centering_position", self.sim_surface.INITIAL_CENTERING)
         self.clock = pygame.time.Clock()
 
+        self.vehicle_label = env.config['vehicle_label']
         self.enabled = True
         if os.environ.get("SDL_VIDEODRIVER", None) == "dummy":
             self.enabled = False
@@ -122,7 +123,7 @@ class EnvViewer(object):
             self.env.road,
             self.sim_surface,
             simulation_frequency=self.env.config["simulation_frequency"],
-            offscreen=self.offscreen)
+            offscreen=self.offscreen, label=self.vehicle_label)
 
         ObservationGraphics.display(self.env.observation_type, self.sim_surface)
 

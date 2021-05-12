@@ -78,6 +78,13 @@ class Scenario:
                                  'length': self.env.config['cruising_vehicle']['length']
                                  })
 
+        self.cruising_vehicle_front = copy.deepcopy({"vehicles_type": self.env.config['cruising_vehicle_front']["vehicles_type"],
+                                               "speed": self.env.config['cruising_vehicle_front']["speed"],
+                                               "enable_lane_change": self.env.config['cruising_vehicle_front'][
+                                                   'enable_lane_change'],
+                                               'length': self.env.config['cruising_vehicle_front']['length']
+                                               })
+
         self.merging_vehicle = copy.deepcopy({'id': self.env.config['merging_vehicle']['id'],
                                 'speed': self.env.config['merging_vehicle']['speed'],
                                 'initial_position': self.env.config['merging_vehicle']['initial_position'],
@@ -696,15 +703,19 @@ class Scenario:
             vehicle_id += 1
 
         if self.cruising_vehicles_front:
+
+            cruising_vehicle_front_class = utils.class_from_path(self.cruising_vehicle_front["vehicles_type"])
+
+
             # vehicle_position = max(vehicle_position, self.cruising_vehicles_front_initial_position)
             lane = road.network.get_lane(("b", "c", right_lane))
             last_vehicle_position= lane.local_coordinates(vehicle.position)[0]
-            vehicle_position = max(last_vehicle_position + self.ego_spacing * self.cruising_vehicle['length'], self.cruising_vehicles_front_initial_position)
+            vehicle_position = max(last_vehicle_position + self.ego_spacing * self.cruising_vehicle_front['length'], self.cruising_vehicles_front_initial_position)
             # vehicle_position = self.cruising_vehicles_front_initial_position
-            vehicle_space = self.ego_spacing * self.cruising_vehicle['length']
-            enable_lane_change = self.cruising_vehicle["enable_lane_change"]
-            speed = self.cruising_vehicle["speed"]
-            if vehicle_space <= (abs(self.random_offset_vehicles[0]) + self.cruising_vehicle['length']):
+            vehicle_space = self.ego_spacing * self.cruising_vehicle_front['length']
+            enable_lane_change = self.cruising_vehicle_front["enable_lane_change"]
+            speed = self.cruising_vehicle_front["speed"]
+            if vehicle_space <= (abs(self.random_offset_vehicles[0]) + self.cruising_vehicle_front['length']):
                 print(" warning, reduce number of vehicle or offset range")
                 exit()
                 # TODO , define default for this case
@@ -713,7 +724,7 @@ class Scenario:
             for i in range(self.cruising_vehicles_front_count):
 
                 if self.cruising_vehicles_front_random_everywhere:
-                    vehicle = self.create_random(cruising_vehicle_class, from_options=["a"],enable_lane_change = self.cruising_vehicle["enable_lane_change"], vehicle_id =vehicle_id)
+                    vehicle = self.create_random(cruising_vehicle_front_class, from_options=["a"],enable_lane_change = self.cruising_vehicle_front["enable_lane_change"], vehicle_id =vehicle_id)
                 else:
                     if self.randomize_vehicles:
                         random_offset = self.random_offset_vehicles
@@ -728,12 +739,12 @@ class Scenario:
                         delta = np.random.randint(low=random_offset[0], high=random_offset[1])
                         speed += delta
 
-                    vehicle = cruising_vehicle_class(road,
+                    vehicle = cruising_vehicle_front_class(road,
                                                      road.network.get_lane(("b", "c", right_lane)).position(
                                                          vehicle_position,
                                                          0),
-                                                     speed=speed, enable_lane_change=self.cruising_vehicle["enable_lane_change"],
-                                                     config=self.env.config, v_type='cruising_vehicle', id=vehicle_id)
+                                                     speed=speed, enable_lane_change=self.cruising_vehicle_front["enable_lane_change"],
+                                                     config=self.env.config, v_type='cruising_vehicle_front', id=vehicle_id)
                     vehicle_position += vehicle_space
 
                 road.vehicles.append(vehicle)

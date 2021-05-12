@@ -240,7 +240,7 @@ class RoadGraphics(object):
                     LaneGraphics.display(l, surface)
 
     @staticmethod
-    def display_traffic(road: Road, surface: WorldSurface, simulation_frequency: int = 15, offscreen: bool = False) \
+    def display_traffic(road: Road, surface: WorldSurface, simulation_frequency: int = 15, offscreen: bool = False, label: bool =False) \
             -> None:
         """
         Display the road vehicles on a surface.
@@ -252,9 +252,9 @@ class RoadGraphics(object):
         """
         if road.record_history:
             for v in road.vehicles:
-                VehicleGraphics.display_history(v, surface, simulation=simulation_frequency, offscreen=offscreen)
+                VehicleGraphics.display_history(v, surface, simulation=simulation_frequency, offscreen=offscreen,label=label)
         for v in road.vehicles:
-            VehicleGraphics.display(v, surface, offscreen=offscreen)
+            VehicleGraphics.display(v, surface, offscreen=offscreen,label=label)
 
     @staticmethod
     def display_road_objects(road: Road, surface: WorldSurface, offscreen: bool = False) -> None:

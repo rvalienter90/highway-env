@@ -154,6 +154,13 @@ class DiscreteMetaAction(ActionType):
         1: 'IDLE',
         2: 'FASTER'
     }
+
+    ACTIONS_LONGI_FAST = {
+        0: 'FASTER'
+    }
+    ACTIONS_LONGI_SLOW = {
+        0: 'SLOWER'
+    }
     """A mapping of longitudinal action indexes to labels."""
 
     ACTIONS_LAT = {
@@ -167,6 +174,8 @@ class DiscreteMetaAction(ActionType):
                  env: 'AbstractEnv',
                  longitudinal: bool = True,
                  lateral: bool = True,
+                 fast: bool = False,
+                 slow: bool = False,
                  **kwargs) -> None:
         """
         Create a discrete action space of meta-actions.
@@ -181,6 +190,8 @@ class DiscreteMetaAction(ActionType):
         self.actions = self.ACTIONS_ALL if longitudinal and lateral \
             else self.ACTIONS_LONGI if longitudinal \
             else self.ACTIONS_LAT if lateral \
+            else self.ACTIONS_LONGI_FAST if fast \
+            else self.ACTIONS_LONGI_SLOW if slow \
             else None
         if self.actions is None:
             raise ValueError("At least longitudinal or lateral actions must be included")
@@ -194,7 +205,7 @@ class DiscreteMetaAction(ActionType):
         return MDPVehicle
 
     def act(self, action: int) -> None:
-        self.controlled_vehicle.act(self.actions[action])
+        self.controlled_vehicle.act(self.actions[int(action)])
 
 
 class MultiAgentAction(ActionType):
@@ -211,6 +222,7 @@ class MultiAgentAction(ActionType):
             self.agents_action_types.append(action_type)
 
     def space(self) -> spaces.Space:
+        # return self.agents_action_types[0].space()
         return spaces.Tuple([action_type.space() for action_type in self.agents_action_types])
 
     @property

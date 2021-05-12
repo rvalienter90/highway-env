@@ -60,9 +60,9 @@ class GrayscaleObservation(ObservationType):
     """
 
     def __init__(self, env: 'AbstractEnv',
-                 observation_shape: Tuple[int, int],
-                 stack_size: int,
-                 weights: List[float],
+                 observation_shape: Tuple[int, int] = (128,64),
+                 stack_size: int = 4,
+                 weights: List[float] = [0.2989, 0.5870, 0.1140],
                  scaling: Optional[float] = None,
                  centering_position: Optional[List[float]] = None,
                  **kwargs) -> None:
@@ -380,6 +380,7 @@ class MultiAgentObservation(ObservationType):
             self.agents_observation_types.append(obs_type)
 
     def space(self) -> spaces.Space:
+        # return self.agents_observation_types[0].space()
         return spaces.Tuple([obs_type.space() for obs_type in self.agents_observation_types])
 
     def observe(self) -> tuple:

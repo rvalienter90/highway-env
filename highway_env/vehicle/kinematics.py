@@ -27,6 +27,8 @@ class Vehicle(RoadObject):
     """ Range for random initial speeds [m/s] """
     MAX_SPEED = 40.
     """ Maximum reachable speed [m/s] """
+    MIN_SPEED = 10.
+    """ Minimum reachable speed [m/s] """
 
     def __init__(self,
                  road: Road,
@@ -154,6 +156,12 @@ class Vehicle(RoadObject):
             self.action['acceleration'] = -1.0 * self.speed
         self.action['steering'] = float(self.action['steering'])
         self.action['acceleration'] = float(self.action['acceleration'])
+
+        if self.speed > 0 and self.speed < self.MIN_SPEED:
+            self.speed = self.MIN_SPEED
+        elif self.speed < 0 and self.speed > -self.MIN_SPEED:
+            self.speed = -self.MIN_SPEED
+
         if self.speed > self.MAX_SPEED:
             self.action['acceleration'] = min(self.action['acceleration'], 1.0 * (self.MAX_SPEED - self.speed))
         elif self.speed < -self.MAX_SPEED:
