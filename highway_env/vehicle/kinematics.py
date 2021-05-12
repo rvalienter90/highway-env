@@ -9,6 +9,7 @@ from highway_env.types import Vector
 
 
 class Vehicle(RoadObject):
+
     """
     A moving vehicle on a road, and its kinematics.
 
@@ -209,7 +210,7 @@ class Vehicle(RoadObject):
     def _is_colliding(self, other, dt):
         # Fast spherical pre-check
         if np.linalg.norm(other.position - self.position) > self.LENGTH + self.speed * dt:
-            return False, False, np.zeros(2, )
+            return False, False, np.zeros(2,)
         # Accurate rectangular check
         return utils.are_polygons_intersecting(self.polygon(), other.polygon(), self.velocity * dt, other.velocity * dt)
 
