@@ -29,6 +29,8 @@ class Vehicle(RoadObject):
     """ Range for random initial speeds [m/s] """
     MAX_SPEED = 40.
     """ Maximum reachable speed [m/s] """
+    MIN_SPEED = 10.
+    """ Minimum reachable speed [m/s] """
     HISTORY_SIZE = 30
     """ Length of the vehicle state history, for trajectory display"""
 
@@ -37,7 +39,8 @@ class Vehicle(RoadObject):
                  position: Vector,
                  heading: float = 0,
                  speed: float = 0,
-                 predition_type: str = 'constant_steering'):
+                 predition_type: str = 'constant_steering', config={},
+                 id: int = 0):
         super().__init__(road, position, heading, speed)
         self.prediction_type = predition_type
         self.action = {'steering': 0, 'acceleration': 0}
