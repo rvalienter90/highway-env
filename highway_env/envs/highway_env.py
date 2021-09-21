@@ -71,9 +71,9 @@ class HighwayEnv(AbstractEnv):
             self.road.vehicles.append(controlled_vehicle)
 
             for _ in range(others):
-                self.road.vehicles.append(
-                    other_vehicles_type.create_random(self.road, spacing=1 / self.config["vehicles_density"])
-                )
+                vehicle = other_vehicles_type.create_random(self.road, spacing=1 / self.config["vehicles_density"])
+                vehicle.randomize_behavior()
+                self.road.vehicles.append(vehicle)
 
     def _reward(self, action: Action) -> float:
         """
@@ -107,7 +107,39 @@ class HighwayEnv(AbstractEnv):
         return float(self.vehicle.crashed)
 
 
+class HighwayEnvFast(HighwayEnv):
+    """
+    A variant of highway-v0 with faster execution:
+        - lower simulation frequency
+        - fewer vehicles in the scene (and fewer lanes, shorter episode duration)
+        - only check collision of controlled vehicles with others
+    """
+    @classmethod
+    def default_config(cls) -> dict:
+        cfg = super().default_config()
+        cfg.update({
+            "simulation_frequency": 5,
+            "lanes_count": 3,
+            "vehicles_count": 20,
+            "duration": 30,  # [s]
+            "ego_spacing": 1.5,
+        })
+        return cfg
+
+    def _create_vehicles(self) -> None:
+        super()._create_vehicles()
+        # Disable collision check for uncontrolled vehicles
+        for vehicle in self.road.vehicles:
+            if vehicle not in self.controlled_vehicles:
+                vehicle.check_collisions = False
+
+
 register(
     id='highway-v0',
     entry_point='highway_env.envs:HighwayEnv',
+)
+
+register(
+    id='highway-fast-v0',
+    entry_point='highway_env.envs:HighwayEnvFast',
 )

@@ -1,12 +1,13 @@
-from typing import Union, Optional
+from typing import Union, Optional, Tuple, List
 import numpy as np
+import copy
 from collections import deque
 
 from highway_env import utils
 from highway_env.road.road import Road, LaneIndex
 from highway_env.vehicle.objects import RoadObject, Obstacle, Landmark
-from highway_env.types import Vector
-
+from highway_env.utils import Vector
+#from highway_env.types import Vector
 
 class Vehicle(RoadObject):
 
@@ -28,22 +29,22 @@ class Vehicle(RoadObject):
     """ Range for random initial speeds [m/s] """
     MAX_SPEED = 40.
     """ Maximum reachable speed [m/s] """
-    MIN_SPEED = 10.
-    """ Minimum reachable speed [m/s] """
+    HISTORY_SIZE = 30
+    """ Length of the vehicle state history, for trajectory display"""
 
     def __init__(self,
                  road: Road,
                  position: Vector,
                  heading: float = 0,
                  speed: float = 0,
-                 config={},
-                 id: int = 0):
+                 predition_type: str = 'constant_steering'):
         super().__init__(road, position, heading, speed)
+        self.prediction_type = predition_type
         self.action = {'steering': 0, 'acceleration': 0}
         self.crashed = False
         self.impact = None
         self.log = []
-        self.history = deque(maxlen=30)
+        self.history = deque(maxlen=self.HISTORY_SIZE)
 
         self.id = id  # vehicle id
         self.is_controlled = 0  # 1 agent, 0 human
@@ -94,13 +95,13 @@ class Vehicle(RoadObject):
         lane = road.network.get_lane((_from, _to, _id))
         if speed is None:
             if lane.speed_limit is not None:
-                speed = road.np_random.uniform(0.7 * lane.speed_limit, lane.speed_limit)
+                speed = road.np_random.uniform(0.7*lane.speed_limit, 0.8*lane.speed_limit)
             else:
                 speed = road.np_random.uniform(Vehicle.DEFAULT_SPEEDS[0], Vehicle.DEFAULT_SPEEDS[1])
-        default_spacing = 15 + 1.2 * speed
+        default_spacing = 12+1.0*speed
         offset = spacing * default_spacing * np.exp(-5 / 40 * len(road.network.graph[_from][_to]))
         x0 = np.max([lane.local_coordinates(v.position)[0] for v in road.vehicles]) \
-            if len(road.vehicles) else 3 * offset
+            if len(road.vehicles) else 3*offset
         x0 += offset * road.np_random.uniform(0.9, 1.1)
         v = cls(road, lane.position(x0, 0), lane.heading_at(x0), speed)
         return v
@@ -154,7 +155,7 @@ class Vehicle(RoadObject):
     def clip_actions(self) -> None:
         if self.crashed:
             self.action['steering'] = 0
-            self.action['acceleration'] = -1.0 * self.speed
+            self.action['acceleration'] = -1.0*self.speed
         self.action['steering'] = float(self.action['steering'])
         self.action['acceleration'] = float(self.action['acceleration'])
 
@@ -174,6 +175,26 @@ class Vehicle(RoadObject):
             self.lane = self.road.network.get_lane(self.lane_index)
             if self.road.record_history:
                 self.history.appendleft(self.create_from(self))
+
+    def predict_trajectory_constant_speed(self, times: np.ndarray) -> Tuple[List[np.ndarray], List[float]]:
+        if self.prediction_type == 'zero_steering':
+            action = {'acceleration': 0.0, 'steering': 0.0}
+        elif self.prediction_type == 'constant_steering':
+            action = {'acceleration': 0.0, 'steering': self.action['steering']}
+        else:
+            raise ValueError("Unknown predition type")
+
+        dt = np.diff(np.concatenate(([0.0], times)))
+
+        positions = []
+        headings = []
+        v = copy.deepcopy(self)
+        v.act(action)
+        for t in dt:
+            v.step(t)
+            positions.append(v.position.copy())
+            headings.append(v.heading)
+        return (positions, headings)
 
     def check_collision(self, other: 'RoadObject', dt: float = 0) -> None:
         """
