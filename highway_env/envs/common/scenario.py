@@ -3,11 +3,16 @@ from highway_env.road.road import Road, RoadNetwork
 from highway_env.vehicle.controller import ControlledVehicle
 from highway_env.vehicle.kinematics import Vehicle
 from highway_env.road.lane import LineType, StraightLane, SineLane
-from highway_env.vehicle.objects import Obstacle
-from highway_env.vehicle.behavior import CustomVehicle
+from highway_env.road.objects import Obstacle
+from highway_env.vehicle.behavior import CustomVehicle, CustomVehicleTurn
 from highway_env import utils
+from highway_env.road.lane import CircularLane
+from highway_env.utils import near_split
+from gym.utils import seeding
 import random
 import copy
+
+
 
 class Scenario:
     def __init__(self, env, scenario_number=0):
@@ -37,11 +42,7 @@ class Scenario:
         self.during_merging = self.env.config['scenario']['during_merging'] + delta_merge
         self.after_merging = self.env.config['scenario']['after_merging']
 
-        self.before_exit = self.env.config['scenario']['before_exit']
-        self.converging_exit = self.env.config['scenario']['converging_exit']
-        self.taking_exit = self.env.config['scenario']['taking_exit']
-        self.during_exit = self.env.config['scenario']['during_exit']
-        self.after_exit = self.env.config['scenario']['after_merging']
+
 
         self.randomize_vehicles = self.env.config['scenario']['randomize_vehicles']
         self.random_offset_vehicles = copy.deepcopy(self.env.config['scenario']['random_offset_vehicles'])
@@ -66,44 +67,42 @@ class Scenario:
         self.prob_of_controlled_vehicle = self.env.config['scenario']['prob_of_controlled_vehicle']
         self.controlled_baseline_vehicle = self.env.config['controlled_baseline_vehicle']
 
+        # self.np_random, seed = seeding.np_random(seed)
+
         if self.env.config['scenario']['random_lane_count']:
             lane_interval = copy.deepcopy(self.env.config['scenario']['lane_count_interval'])
             self.lanes_count = np.random.randint(low=lane_interval[0], high=lane_interval[1])
         else:
             self.lanes_count = self.env.config['lanes_count']
 
-        self.cruising_vehicle = copy.deepcopy({"vehicles_type": self.env.config['cruising_vehicle']["vehicles_type"],
-                                 "speed": self.env.config['cruising_vehicle']["speed"],
-                                 "enable_lane_change": self.env.config['cruising_vehicle']['enable_lane_change'],
-                                 'length': self.env.config['cruising_vehicle']['length']
-                                 })
+        # self.cruising_vehicle = copy.deepcopy({"vehicles_type": self.env.config['cruising_vehicle']["vehicles_type"],
+        #                          "speed": self.env.config['cruising_vehicle']["speed"],
+        #                          "enable_lane_change": self.env.config['cruising_vehicle']['enable_lane_change'],
+        #                          'length': self.env.config['cruising_vehicle']['length']
+        #                          })
+        self.cruising_vehicle = copy.deepcopy(self.env.config['cruising_vehicle'])
+        self.merging_vehicle = copy.deepcopy(self.env.config['merging_vehicle'])
 
-        self.cruising_vehicle_front = copy.deepcopy({"vehicles_type": self.env.config['cruising_vehicle_front']["vehicles_type"],
-                                               "speed": self.env.config['cruising_vehicle_front']["speed"],
-                                               "enable_lane_change": self.env.config['cruising_vehicle_front'][
-                                                   'enable_lane_change'],
-                                               'length': self.env.config['cruising_vehicle_front']['length']
-                                               })
-
-        self.merging_vehicle = copy.deepcopy({'id': self.env.config['merging_vehicle']['id'],
-                                'speed': self.env.config['merging_vehicle']['speed'],
-                                'initial_position': self.env.config['merging_vehicle']['initial_position'],
-                                'random_offset_merging': self.env.config['merging_vehicle']['random_offset_merging'],
-                                'controlled_vehicle': self.env.config['merging_vehicle']['controlled_vehicle'],
-                                'vehicles_type': self.env.config['merging_vehicle']["vehicles_type"],
-                                'set_route': self.env.config['merging_vehicle']['set_route'],
-                                'randomize': self.env.config['merging_vehicle']['randomize'],
-                                'randomize_speed_merging': self.env.config['merging_vehicle']['randomize_speed_merging'],
-                                'min_speed': self.env.config['merging_vehicle']['min_speed'],
-                                'max_speed': self.env.config['merging_vehicle'][ 'max_speed'],
-                                })
-
+        # self.merging_vehicle = copy.deepcopy({'id': self.env.config['merging_vehicle']['id'],
+        #                         'speed': self.env.config['merging_vehicle']['speed'],
+        #                         'initial_position': self.env.config['merging_vehicle']['initial_position'],
+        #                         'random_offset_merging': self.env.config['merging_vehicle']['random_offset_merging'],
+        #                         'controlled_vehicle': self.env.config['merging_vehicle']['controlled_vehicle'],
+        #                         'vehicles_type': self.env.config['merging_vehicle']["vehicles_type"],
+        #                         'set_route': self.env.config['merging_vehicle']['set_route'],
+        #                         'randomize': self.env.config['merging_vehicle']['randomize'],
+        #                         'randomize_speed_merging': self.env.config['merging_vehicle']['randomize_speed_merging'],
+        #                         'min_speed': self.env.config['merging_vehicle']['min_speed'],
+        #                         'max_speed': self.env.config['merging_vehicle'][ 'max_speed'],
+        #                         })
+        # #
         self.exit_vehicle = copy.deepcopy({'id': self.env.config['exit_vehicle']['id'],
                              'speed': self.env.config['exit_vehicle']['speed'],
                              'initial_position': self.env.config['exit_vehicle']['initial_position'],
                              'controlled_vehicle': self.env.config['exit_vehicle']['controlled_vehicle'],
                              'vehicles_type': self.env.config['exit_vehicle']["vehicles_type"],
                              'set_route': self.env.config['exit_vehicle']['set_route'],
+                                           'random_offset_exit': self.env.config['exit_vehicle']['random_offset_exit'],
                              'randomize': self.env.config['exit_vehicle']['randomize']
                              })
 
@@ -118,6 +117,16 @@ class Scenario:
         self.initial_lane_id = self.env.config["initial_lane_id"]
         self.vehicles_density = self.env.config["vehicles_density"]
 
+        # self.before_exit = self.env.config['scenario']['before_exit']
+        # self.converging_exit = self.env.config['scenario']['converging_exit']
+        # self.taking_exit = self.env.config['scenario']['taking_exit']
+        # self.during_exit = self.env.config['scenario']['during_exit']
+        # self.after_exit = self.env.config['scenario']['after_merging']
+
+        self.exit_humans = self.env.config['scenario']['exit_humans']
+        self.exit_controlled = self.env.config['scenario']['exit_controlled']
+        self.exit_length = self.env.config['scenario']['exit_length']
+        self.after_exit = self.env.config['scenario']['after_exit']
         self._create_road(self.road_type)
         self._create_vehicles(self.road_type)
 
@@ -483,7 +492,7 @@ class Scenario:
 
         self.road = road
 
-    def _road_exit(self):
+    def _road_exit1(self):
         """Create a road composed of straight adjacent lanes."""
 
         net = RoadNetwork()
@@ -530,6 +539,37 @@ class Scenario:
 
         self.road = road
 
+    def _road_exit(self):
+        # road_length = 1000, exit_humans = 400, exit_length = 100
+        exit_position = self.exit_humans + self.exit_controlled
+        exit_length =  self.exit_length
+        after_exit = self.after_exit
+        net = RoadNetwork.straight_road_networkv2(self.lanes_count, start=0,
+                                                length=exit_position, nodes_str=("0", "1"))
+        net = RoadNetwork.straight_road_networkv2(self.lanes_count+ 1, start=exit_position,
+                                                length=exit_length, nodes_str=("1", "2"), net=net)
+        net = RoadNetwork.straight_road_networkv2(self.lanes_count, start=exit_position + exit_length,
+                                                length=after_exit,
+                                                nodes_str=("2", "3"), net=net)
+        for _from in net.graph:
+            for _to in net.graph[_from]:
+                for _id in range(len(net.graph[_from][_to])):
+                    net.get_lane((_from, _to, _id)).speed_limit = 26 - 3.4 * _id
+        exit_position = np.array([exit_position + exit_length, self.lanes_count * CircularLane.DEFAULT_WIDTH])
+        radius = 150
+        exit_center = exit_position + np.array([0, radius])
+        lane = CircularLane(center=exit_center,
+                            radius=radius,
+                            start_phase=3 * np.pi / 2,
+                            end_phase=2 * np.pi,
+                            forbidden=True)
+        net.add_lane("2", "exit", lane)
+
+        self.road = Road(network=net,
+                         np_random=self.env.np_random)
+
+
+
     def _road_closed(self, end=200, after=1000):
         """Create a road composed of straight adjacent lanes."""
 
@@ -556,21 +596,73 @@ class Scenario:
         road.objects.append(Obstacle(road, pos))
         self.road = road
 
+
     def _vehicles_highway(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
         self.controlled_vehicles = []
-        for _ in range(self.controlled_vehicles_count):
-            vehicle = self.env.action_type.vehicle_class.create_random(self.road,
-                                                                       speed=25,
-                                                                       lane_id=self.initial_lane_id,
-                                                                       spacing=self.ego_spacing)
-            self.controlled_vehicles.append(vehicle)
-            self.road.vehicles.append(vehicle)
+        back = False
+        basic = False
+        if back:
+            for _ in range(self.controlled_vehicles_count):
+                vehicle = self.env.action_type.vehicle_class.create_random(self.road,
+                                                                           speed=25,
+                                                                           spacing=self.ego_spacing)
+                self.controlled_vehicles.append(vehicle)
+                self.road.vehicles.append(vehicle)
 
-        vehicles_type = utils.class_from_path(self.other_vehicles_type)
-        for _ in range(self.cruising_vehicles_count):
-            self.road.vehicles.append(
-                vehicles_type.create_random(self.road, spacing=1 / self.vehicles_density))
+            # vehicles_type = cruising_vehicle = utils.class_from_path(self.cruising_vehicle["vehicles_type"])
+
+            cruising_vehicle = utils.class_from_path(self.cruising_vehicle["vehicles_type"])
+
+            vehicles_type = utils.class_from_path(self.other_vehicles_type)
+            for _ in range(self.cruising_vehicles_count):
+                self.road.vehicles.append(
+                    vehicles_type.create_random(self.road, spacing=1 / self.vehicles_density))
+        elif basic:
+            other_vehicles_type = utils.class_from_path(self.other_vehicles_type)
+            other_per_controlled = near_split(self.cruising_vehicles_count,
+                                              num_bins=self.controlled_vehicles_count)
+
+            self.controlled_vehicles = []
+            for others in other_per_controlled:
+                controlled_vehicle = self.env.action_type.vehicle_class.create_random(
+                    self.road,
+                    speed=25,
+                    spacing=self.ego_spacing
+                )
+                self.controlled_vehicles.append(controlled_vehicle)
+                self.road.vehicles.append(controlled_vehicle)
+
+                for _ in range(others):
+                    self.road.vehicles.append(
+                        other_vehicles_type.create_random(self.road, spacing=1 / self.vehicles_density)
+                    )
+        else:
+            vehicle_id =1
+            cruising_vehicle = utils.class_from_path(self.cruising_vehicle["vehicles_type"])
+            other_per_controlled = near_split(self.cruising_vehicles_count,
+                                              num_bins=self.controlled_vehicles_count)
+
+            self.controlled_vehicles = []
+            speed_controlled = self.controlled_vehicle_speed
+            for others in other_per_controlled:
+                controlled_vehicle = self.env.action_type.vehicle_class.create_random(
+                    self.road,
+                    speed=speed_controlled,
+                    spacing=self.ego_spacing, id=vehicle_id
+                )
+                self.controlled_vehicles.append(controlled_vehicle)
+                self.road.vehicles.append(controlled_vehicle)
+
+                vehicle_id += 1
+                for _ in range(others):
+                    self.road.vehicles.append(
+                        cruising_vehicle.create_random_custom(self.road, spacing=1 / self.vehicles_density,config=self.env.config, v_type='cruising_vehicle', id=vehicle_id)
+
+                    )
+                    vehicle_id += 1
+
+
 
     def _vehicles_road_closed(self, controlled_vehicles=4, cruising_vehicles_count=10) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
@@ -669,6 +761,9 @@ class Scenario:
             # TODO , define default for this case
             # TODO , consider speed also for positioning
 
+        count = 0
+        # TODO fix it
+        multi_agent_setting = True
         for _ in range(self.controlled_vehicles_count):
             if self.randomize_vehicles:
                 random_offset = self.random_offset_vehicles
@@ -691,31 +786,43 @@ class Scenario:
                                                  speed=speed, enable_lane_change=enable_lane_change,
                                                  config=self.env.config, v_type='baseline_vehicle', id=vehicle_id)
             else:
-                vehicle = self.env.action_type.vehicle_class(road,
-                                                             road.network.get_lane(("a", "b", right_lane)).position(
-                                                                 vehicle_position, 0),
-                                                             speed=speed, id=vehicle_id)
+                count +=1
+                if count<=2 or multi_agent_setting:
+                    vehicle = self.env.action_type.vehicle_class(road,
+                                                                 road.network.get_lane(("a", "b", right_lane)).position(
+                                                                     vehicle_position, 0),
+                                                                 speed=speed, id=vehicle_id)
+                    if not multi_agent_setting:
+                        vehicle_space = vehicle_space
+                else:
+                    vehicle = cruising_vehicle_class(road,
+                                                     road.network.get_lane(("a", "b", right_lane)).position(
+                                                         vehicle_position,
+                                                         0),
+                                                     speed=speed, enable_lane_change=enable_lane_change,
+                                                     config=self.env.config, v_type='cruising_vehicle', id=vehicle_id)
+
+
 
             vehicle_position += vehicle_space
+            if count <= 2 or multi_agent_setting:
+                self.controlled_vehicles.append(vehicle)
 
-            self.controlled_vehicles.append(vehicle)
+
+
             road.vehicles.append(vehicle)
             vehicle_id += 1
 
         if self.cruising_vehicles_front:
-
-            cruising_vehicle_front_class = utils.class_from_path(self.cruising_vehicle_front["vehicles_type"])
-
-
             # vehicle_position = max(vehicle_position, self.cruising_vehicles_front_initial_position)
             lane = road.network.get_lane(("b", "c", right_lane))
             last_vehicle_position= lane.local_coordinates(vehicle.position)[0]
-            vehicle_position = max(last_vehicle_position + self.ego_spacing * self.cruising_vehicle_front['length'], self.cruising_vehicles_front_initial_position)
+            vehicle_position = max(last_vehicle_position + self.ego_spacing * self.cruising_vehicle['length'], self.cruising_vehicles_front_initial_position)
             # vehicle_position = self.cruising_vehicles_front_initial_position
-            vehicle_space = self.ego_spacing * self.cruising_vehicle_front['length']
-            enable_lane_change = self.cruising_vehicle_front["enable_lane_change"]
-            speed = self.cruising_vehicle_front["speed"]
-            if vehicle_space <= (abs(self.random_offset_vehicles[0]) + self.cruising_vehicle_front['length']):
+            vehicle_space = self.ego_spacing * self.cruising_vehicle['length']
+            enable_lane_change = self.cruising_vehicle["enable_lane_change"]
+            speed = self.cruising_vehicle["speed"]
+            if vehicle_space <= (abs(self.random_offset_vehicles[0]) + self.cruising_vehicle['length']):
                 print(" warning, reduce number of vehicle or offset range")
                 exit()
                 # TODO , define default for this case
@@ -724,7 +831,7 @@ class Scenario:
             for i in range(self.cruising_vehicles_front_count):
 
                 if self.cruising_vehicles_front_random_everywhere:
-                    vehicle = self.create_random(cruising_vehicle_front_class, from_options=["a"],enable_lane_change = self.cruising_vehicle_front["enable_lane_change"], vehicle_id =vehicle_id)
+                    vehicle = self.create_random(cruising_vehicle_class, from_options=["a"],enable_lane_change = self.cruising_vehicle["enable_lane_change"], vehicle_id =vehicle_id)
                 else:
                     if self.randomize_vehicles:
                         random_offset = self.random_offset_vehicles
@@ -739,12 +846,12 @@ class Scenario:
                         delta = np.random.randint(low=random_offset[0], high=random_offset[1])
                         speed += delta
 
-                    vehicle = cruising_vehicle_front_class(road,
+                    vehicle = cruising_vehicle_class(road,
                                                      road.network.get_lane(("b", "c", right_lane)).position(
                                                          vehicle_position,
                                                          0),
-                                                     speed=speed, enable_lane_change=self.cruising_vehicle_front["enable_lane_change"],
-                                                     config=self.env.config, v_type='cruising_vehicle_front', id=vehicle_id)
+                                                     speed=speed, enable_lane_change=self.cruising_vehicle["enable_lane_change"],
+                                                     config=self.env.config, v_type='cruising_vehicle', id=vehicle_id)
                     vehicle_position += vehicle_space
 
                 road.vehicles.append(vehicle)
@@ -787,17 +894,11 @@ class Scenario:
             # if  self.exit_vehicle['set_route']:
             #     route=[('j', 'k', 0), ('k', 'b', 0), ('b', 'c', 0),('c', 'd', 0)]
 
-            # merging_v = self.env.action_type.vehicle_class(road,
-            #                                                road.network.get_lane(("j", "k", 0)).position(
-            #                                                    initial_position[0],
-            #                                                    initial_position[1]), speed=speed,
-            #                                                config=self.env.config, id=id_merging_vehicle, route=route , min_speed=self.merging_vehicle['min_speed'], max_speed=self.merging_vehicle['max_speed'])
             merging_v = self.env.action_type.vehicle_class(road,
                                                            road.network.get_lane(("j", "k", 0)).position(
                                                                initial_position[0],
                                                                initial_position[1]), speed=speed,
-                                                           config=self.env.config, id=id_merging_vehicle, route=route
-                                                      )
+                                                           config=self.env.config, id=id_merging_vehicle, route=route , min_speed=self.merging_vehicle['min_speed'], max_speed=self.merging_vehicle['max_speed'])
         else:
             # route = [('j', 'k', 0), ('k', 'b', 0), ('b', 'c', 0), ('c', 'd', 0)]
             merging_vehicle = utils.class_from_path(self.merging_vehicle['vehicles_type'])
@@ -813,7 +914,7 @@ class Scenario:
             self.controlled_vehicles.append(merging_v)
         self.road = road
 
-    def _vehicles_exit_highway(self) -> None:
+    def _vehicles_exit_highway1(self) -> None:
         """Create some new random vehicles of a given type, and add them on the road."""
         # TODO always in the same possition ??
         # random.seed(30)
@@ -921,6 +1022,128 @@ class Scenario:
         road.vehicles.append(exit_v)
         if self.merging_vehicle['controlled_vehicle']:
             self.controlled_vehicles.append(exit_v)
+        self.road = road
+
+    def _vehicles_exit_highwayv0(self):
+        """Create some new random vehicles of a given type, and add them on the road."""
+        self.controlled_vehicles = []
+        road = self.road
+        for _ in range(self.controlled_vehicles_count):
+            vehicle = self.env.action_type.vehicle_class.create_randomv2(road,
+                                                                         speed=25,
+                                                                         lane_from="0",
+                                                                         lane_to="1",
+                                                                         lane_id=0,
+                                                                         spacing=self.ego_spacing)
+            vehicle.SPEED_MIN = 18
+            self.controlled_vehicles.append(vehicle)
+            road.vehicles.append(vehicle)
+
+        # vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
+        cruising_vehicle_class = vehicles_type = utils.class_from_path(self.cruising_vehicle["vehicles_type"])
+
+        for _ in range(self.cruising_vehicles_count):
+            lanes = np.arange(self.lanes_count)
+            lane_id = road.np_random.choice(lanes, size=1,
+                                            p=lanes / lanes.sum()).astype(int)[0]
+            lane = road.network.get_lane(("0", "1", lane_id))
+            vehicle = vehicles_type.create_randomv2(road,
+                                                    lane_from="0",
+                                                    lane_to="1",
+                                                    lane_id=lane_id,
+                                                    speed=lane.speed_limit,
+                                                    spacing=1 / self.vehicles_density,
+                                                    ).plan_route_to("3")
+            vehicle.enable_lane_change = False
+            road.vehicles.append(vehicle)
+
+        self.road = road
+    def _vehicles_exit_highway(self):
+        """Create some new random vehicles of a given type, and add them on the road."""
+        self.controlled_vehicles = []
+        road = self.road
+        right_lane = 1
+        vehicle_position = self.exit_humans + 10
+        vehicle_space = self.exit_controlled/ self.controlled_vehicles_count
+        vehicle_id = 1
+        speed = self.controlled_vehicle_speed
+        for _ in range(self.controlled_vehicles_count):
+            vehicle = self.env.action_type.vehicle_class(road,
+                                                             road.network.get_lane(("0", "1", right_lane)).position(
+                                                                 vehicle_position, 0),
+                                                             speed=speed, id=vehicle_id)
+            vehicle_position += vehicle_space
+
+
+            self.controlled_vehicles.append(vehicle)
+            road.vehicles.append(vehicle)
+            vehicle_id += 1
+        # vehicles_type = utils.class_from_path(self.config["other_vehicles_type"])
+        cruising_vehicle_class= vehicles_type = utils.class_from_path(self.cruising_vehicle["vehicles_type"])
+        vehicle_position = 0
+        vehicle_space = (self.exit_humans) / self.cruising_vehicles_count
+        speed = self.cruising_vehicle['speed']
+        enable_lane_change = self.cruising_vehicle['enable_lane_change']
+        cruising_vehicle = utils.class_from_path(self.cruising_vehicle["vehicles_type"])
+        for _ in range(self.cruising_vehicles_count):
+            vehicle = cruising_vehicle(road,
+                                       road.network.get_lane(("0", "1", 1)).position(vehicle_position, 0),
+                                       speed=speed, enable_lane_change=enable_lane_change,
+                                       config=self.env.config, v_type='cruising_vehicle', id=vehicle_id)
+            vehicle_position += vehicle_space
+            road.vehicles.append(vehicle)
+            vehicle_id += 1
+
+        id_exit_vehicle = self.exit_vehicle['id']
+        speed = self.exit_vehicle['speed']
+        initial_position = self.exit_vehicle['initial_position']
+        route = None
+
+        if self.exit_vehicle['randomize']:
+            episode = self.env.episode
+            initial_positions=[69,74]
+            # idx = episode % 2
+
+            if episode%150 ==0:
+                idx = 1
+            else:
+                idx =0
+            initial_position[0] = initial_positions[idx]
+
+            random_offset = self.exit_vehicle['random_offset_exit']
+            delta = np.random.randint(low=-random_offset[0], high=random_offset[1])
+            # delta = np.random.normal(0, random_offset[1] / 3)
+            # if delta > 0:
+            #     delta = min(delta, random_offset[1])
+            # else:
+            #     delta = max(delta, -random_offset[1])
+
+            initial_position[0] += delta
+            # initial_position[0] = max(0, initial_position[0])
+
+        if self.exit_vehicle['controlled_vehicle']:
+            if self.exit_vehicle['set_route']:
+                route = [('a', 'b', 0), ('b', 'p', 0), ('p', 'k', 0), ('k', 'j', 0)]
+
+            exit_v = self.env.action_type.vehicle_class(road,
+                                                        road.network.get_lane(("a", "b", 0)).position(
+                                                            initial_position[0],
+                                                            initial_position[1]), speed=speed, config=self.env.config,
+                                                        id=id_exit_vehicle, route=route)
+        else:
+            exit_vehicle = utils.class_from_path(self.exit_vehicle["vehicles_type"])
+            route = [('0', '1', 1), ('1', '2', 2), ('2', 'exit', 0)]
+            exit_v = exit_vehicle(road, road.network.get_lane(("0", "1", 0)).position(initial_position[0],
+                                                                                      initial_position[1]),
+                                  speed=speed,
+                                  config=self.env.config, v_type='exit_vehicle', id=id_exit_vehicle,
+                                  route=route)
+
+        road.vehicles.append(exit_v)
+        if self.merging_vehicle['controlled_vehicle']:
+            self.controlled_vehicles.append(exit_v)
+
+
         self.road = road
 
     def _vehicles_merge_to_highway_prob(self) -> None:

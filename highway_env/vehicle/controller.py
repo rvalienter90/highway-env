@@ -210,6 +210,26 @@ class MDPVehicle(ControlledVehicle):
     SPEED_MIN: float = 10  # [m/s]
     SPEED_MAX: float = 35 # [m/s]
 
+    # For safety
+    # Longitudinal policy parameters
+    ACC_MAX = 6.0  # [m/s2]
+    """Maximum acceleration."""
+
+    COMFORT_ACC_MAX = 5.0  # [m/s2]
+    """Desired maximum acceleration."""
+
+    COMFORT_ACC_MIN = -6.0  # [m/s2]
+    """Desired maximum deceleration."""
+
+    DISTANCE_WANTED = 5 + ControlledVehicle.LENGTH  # [m]
+    """Desired jam distance to the front vehicle."""
+
+    TIME_WANTED = 0.3  # [s]
+    """Desired time gap to the front vehicle."""
+
+    DELTA = 4.0  # []
+    """Exponent of the velocity term."""
+
     def __init__(self,
                  road: Road,
                  position: List[float],
@@ -221,6 +241,7 @@ class MDPVehicle(ControlledVehicle):
                  config={},
                  id: int =0) -> None:
         super().__init__(road, position, heading, speed, target_lane_index, target_speed, route,config, id)
+
         self.speed_index = self.speed_to_index(self.target_speed)
         self.target_speed = self.index_to_speed(self.speed_index)
         self.is_controlled = 1  # 1 agent, 0 human

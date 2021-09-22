@@ -71,12 +71,42 @@ class Vehicle(RoadObject):
         return cls(road, lane.position(longitudinal, 0), lane.heading_at(longitudinal), speed)
 
     @classmethod
-    def create_random(cls, road: Road,
-                      speed: float = None,
-                      lane_from: Optional[str] = None,
-                      lane_to: Optional[str] = None,
-                      lane_id: Optional[int] = None,
-                      spacing: float = 1) \
+    def create_random(cls, road: Road, speed: float = None, lane_id: Optional[int] = None, spacing: float = 1, id=0) \
+            -> "Vehicle":
+        """
+        Create a random vehicle on the road.
+
+        The lane and /or speed are chosen randomly, while longitudinal position is chosen behind the last
+        vehicle in the road with density based on the number of lanes.
+
+        :param road: the road where the vehicle is driving
+        :param speed: initial speed in [m/s]. If None, will be chosen randomly
+        :param lane_id: id of the lane to spawn in
+        :param spacing: ratio of spacing to the front vehicle, 1 being the default
+        :return: A vehicle with random position and/or speed
+        """
+        if speed is None:
+            speed = road.np_random.uniform(Vehicle.DEFAULT_SPEEDS[0], Vehicle.DEFAULT_SPEEDS[1])
+        default_spacing = 1.5 * speed
+        _from = road.np_random.choice(list(road.network.graph.keys()))
+        _to = road.np_random.choice(list(road.network.graph[_from].keys()))
+        _id = lane_id if lane_id is not None else road.np_random.choice(len(road.network.graph[_from][_to]))
+        lane = road.network.get_lane((_from, _to, _id))
+        offset = spacing * default_spacing * np.exp(-5 / 30 * len(road.network.graph[_from][_to]))
+        x0 = np.max([lane.local_coordinates(v.position)[0] for v in road.vehicles]) \
+            if len(road.vehicles) else 3 * offset
+        x0 += offset * road.np_random.uniform(0.9, 1.1)
+        v = cls(road, lane.position(x0, 0), lane.heading_at(x0), speed, id=id)
+        return v
+
+    @classmethod
+    # for new exit env
+    def create_randomv2(cls, road: Road,
+                        speed: float = None,
+                        lane_from: Optional[str] = None,
+                        lane_to: Optional[str] = None,
+                        lane_id: Optional[int] = None,
+                        spacing: float = 1) \
             -> "Vehicle":
         """
         Create a random vehicle on the road.
@@ -98,13 +128,13 @@ class Vehicle(RoadObject):
         lane = road.network.get_lane((_from, _to, _id))
         if speed is None:
             if lane.speed_limit is not None:
-                speed = road.np_random.uniform(0.7*lane.speed_limit, 0.8*lane.speed_limit)
+                speed = road.np_random.uniform(0.7 * lane.speed_limit, lane.speed_limit)
             else:
                 speed = road.np_random.uniform(Vehicle.DEFAULT_SPEEDS[0], Vehicle.DEFAULT_SPEEDS[1])
-        default_spacing = 12+1.0*speed
+        default_spacing = 15 + 1.2 * speed
         offset = spacing * default_spacing * np.exp(-5 / 40 * len(road.network.graph[_from][_to]))
         x0 = np.max([lane.local_coordinates(v.position)[0] for v in road.vehicles]) \
-            if len(road.vehicles) else 3*offset
+            if len(road.vehicles) else 3 * offset
         x0 += offset * road.np_random.uniform(0.9, 1.1)
         v = cls(road, lane.position(x0, 0), lane.heading_at(x0), speed)
         return v

@@ -1,8 +1,11 @@
 import copy
 import importlib
 import itertools
+import math
 from typing import Tuple, Dict, Callable, List, Optional, Union, Sequence
-
+import matplotlib.pyplot as plt
+from PIL import Image
+from PIL import ImageDraw
 import numpy as np
 
 # Useful types
@@ -321,3 +324,173 @@ def solve_trinom(a, b, c):
         return (-b - np.sqrt(delta)) / (2 * a), (-b + np.sqrt(delta)) / (2 * a)
     else:
         return None, None
+
+def clipped_logmap(x, ax, bx, min, max):
+    """
+    logarithmic mapping of value x to a range from min to max. ax shows the value of x that takes
+    the output to 3/4 of the dynamic range and bx is the value that takes the output to the end of
+    dynamic range.
+    """
+
+    sgn = np.sign(x)
+    clipped_x = np.clip(x, 0.35, None)
+    y = math.log10(clipped_x / ax * 30) * bx / 80
+    y_clipped = sgn * np.clip(y, 0, 1)
+
+    return (y_clipped/2 +0.5) * (max - min) + min
+
+def draw_polygon(data, x, y, l, w, h, fill , max=255):
+    img = Image.fromarray(data)
+    draw = ImageDraw.Draw(img)
+    rect = get_rect(x=y, y=x, w=w, h=l, angle=h)
+    draw.polygon([tuple(p) for p in rect], fill=fill * max)
+    # img.show()
+    new_data = np.asarray(img)
+    return new_data
+
+def get_rect(x, y, w, h, angle):
+    # rect = np.array([(0, 0), (width, 0), (width, height), (0, height), (0, 0)])
+    rect = np.array([(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2), (-w / 2, -h / 2)])
+    # theta = (np.pi / 180.0) * angle
+    theta = angle
+    R = np.array([[np.cos(theta), -np.sin(theta)],
+                  [np.sin(theta), np.cos(theta)]])
+    offset = np.array([x, y])
+    transformed_rect = np.dot(rect, R) + offset
+    return transformed_rect
+
+def visualize_heatmap_state(observation , vmax =1):
+
+    # Image.fromarray(np.moveaxis(self.state_road_layout, 0, 1)).show()
+    # Image.fromarray(np.moveaxis(self.state_agents_box, 0, 1)).show()
+    # Image.fromarray(np.moveaxis(self.state_humans_box, 0, 1)).show()
+    # Image.fromarray(np.moveaxis(self.state_mission_box, 0, 1)).show()
+    dpi = 96
+    stack_size = observation.history_stack_size
+
+    # subplot_start_index = int("6"+str(stack_size)+"1")
+    size = [observation.observation_shape[0] * 3 / dpi, observation.observation_shape[1] * 5 * 3 / dpi]
+    plt.figure(1, figsize=size)
+    plt.suptitle("state for vehicle id #{:n}".format(observation.observer_vehicle.id))
+    subplot_start_index = 1
+
+    state = copy.deepcopy(observation.state)
+    if stack_size == 1:
+        new_shape = (1,) + observation.state.shape
+        state = state.reshape(new_shape)
+
+    for layer in state:
+        i = subplot_start_index
+        j = 0
+        if "layout" in observation.state_features:
+            state_road_layout = layer[j]
+            j += 1
+            plt.subplot(6, stack_size, i)
+            # plt.imshow(np.moveaxis(state_road_layout, 0, 1), cmap='gray', vmin=0, vmax=vmax)
+            plt.imshow(state_road_layout, cmap='gray', vmin=0, vmax=vmax)
+
+            plt.grid(False)
+            plt.xticks([])
+            plt.yticks([])
+            plt.title("state_road_layout")
+        # subplot_index += stack_size
+        i += stack_size
+        if "agents" in observation.state_features:
+            state_agents_box = layer[j]
+            j += 1
+            plt.subplot(6, stack_size, i)
+            # plt.imshow(np.moveaxis(state_agents_box, 0, 1), cmap='gray', vmin=0, vmax=vmax)
+            plt.imshow(state_agents_box, cmap='gray', vmin=0, vmax=vmax)
+            plt.grid(False)
+            plt.xticks([])
+            plt.yticks([])
+            plt.title("state_agents_box")
+        # subplot_index += stack_size
+        i += stack_size
+        if "humans" in observation.state_features:
+            state_humans_box = layer[j]
+            j += 1
+            plt.subplot(6, stack_size, i)
+            # plt.imshow(np.moveaxis(state_humans_box, 0, 1), cmap='gray', vmin=0, vmax=vmax)
+            plt.imshow(state_humans_box, cmap='gray', vmin=0, vmax=vmax)
+
+            plt.grid(False)
+            plt.xticks([])
+            plt.yticks([])
+            plt.title("state_humans_box")
+        # subplot_index += stack_size
+        i += stack_size
+        if "mission" in observation.state_features:
+            state_mission_box = layer[j]
+            j += 1
+            plt.subplot(6, stack_size, i)
+            # plt.imshow(np.moveaxis(state_mission_box, 0, 1), cmap='gray', vmin=0, vmax=vmax)
+            plt.imshow(state_mission_box, cmap='gray', vmin=0, vmax=vmax)
+
+            plt.grid(False)
+            plt.xticks([])
+            plt.yticks([])
+            plt.title("state_mission_box")
+        # subplot_index += stack_size
+        i += stack_size
+        if "ego" in observation.state_features:
+            state_ego_box = layer[j]
+            j += 1
+            plt.subplot(6, stack_size, i)
+            plt.imshow(state_ego_box, cmap='gray', vmin=0, vmax=vmax)
+            # plt.imshow(np.moveaxis(state_ego_box, 0, 1), cmap='gray', vmin=0, vmax=vmax)
+            plt.grid(False)
+            plt.xticks([])
+            plt.yticks([])
+            plt.title("attention_map")
+        # subplot_index += stack_size
+        i += stack_size
+        if "layout" in observation.state_features and "humans" in observation.state_features and "agents" in observation.state_features:
+
+            plt.subplot(6, stack_size, i)
+            stacked = sum([state_road_layout, state_humans_box, state_agents_box])
+            np.clip(stacked, 0, 255)
+            plt.imshow(np.moveaxis(stacked, 0, 1), cmap='gray', vmin=0, vmax=vmax)
+            plt.grid(False)
+            plt.xticks([])
+            plt.yticks([])
+            plt.title("flattened")
+            i += stack_size
+        subplot_start_index += 1
+
+    # plt.tight_layout()
+    plt.show()
+
+def visualize_image_state(state, figsize = [20,3] , show= True):
+    if show is False:
+        # Turn interactive plotting off
+        plt.ioff()
+    plt.grid(False)
+    shapes = np.shape(state)
+    fig, axs = plt.subplots(shapes[0], 1, figsize=(figsize[0], figsize[1] ))
+    for i in range(0, shapes[0]):
+        plt.grid(False)
+        statei = state [i,:,:]
+        # img = Image.fromarray(statei).show()
+        if shapes[0]==1:
+            axs.imshow(statei, cmap='gray', vmin=0, vmax=1)
+        else:
+            axs[i].imshow(statei, cmap='gray', vmin=0, vmax=1)
+        plt.grid(False)
+
+    # if show:
+    #     plt.show()
+    #     plt.pause(1 / 15)
+
+def get_road_network_boundaries(road: Road):
+    xs = []
+    ys = []
+    for _from in road.network.graph.keys():
+        for _to in road.network.graph[_from].keys():
+            for l in road.network.graph[_from][_to]:
+                xs.append(l.start[0])
+                xs.append(l.end[0])
+                ys.append(l.start[1])
+                ys.append(l.end[1])
+
+    return [max(xs), max(ys)]

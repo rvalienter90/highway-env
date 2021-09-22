@@ -13,10 +13,15 @@ class MissionFactory():
             return self.mission_accomplished, self.mission_vehicle
 
         if mission_type == 'exit':
+            # return None, None
             if not self.mission_accomplished:
                 self.mission_accomplished, self.mission_vehicle = self.check_exit_vehicle()
 
             return self.mission_accomplished, self.mission_vehicle
+
+        if mission_type == 'none':
+            return False, None
+
     def check_merging_vehicle(self):
         # TODO
         vehicle = None
@@ -35,12 +40,14 @@ class MissionFactory():
         for vehicle in self.env.road.vehicles:
             if vehicle.id == self.env.config['exit_vehicle']['id']:
                 _from, _to, _id = vehicle.target_lane_index
-                right_lane = len(self.env.road.network.graph['b']['p']) - 1
-                if _from == 'b' and _to == 'p' and _id == right_lane:
+                right_lane = len(self.env.road.network.graph[_from][_to])-1
+
+                if _from == '1' and _to == '2' and _id == right_lane:
                     return True, vehicle
-                elif _from == 'c' and _to == 'k':
+                elif _from == '0' and _to == '1' and _id == right_lane:
                     return True, vehicle
-                elif _from == 'k' and _to == 'j':
+                elif _id == right_lane:
                     return True, vehicle
+
 
         return False, vehicle
