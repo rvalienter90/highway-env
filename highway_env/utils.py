@@ -482,7 +482,7 @@ def visualize_image_state(state, figsize = [20,3] , show= True):
     #     plt.show()
     #     plt.pause(1 / 15)
 
-def get_road_network_boundaries(road: Road):
+def get_road_network_boundaries(road):
     xs = []
     ys = []
     for _from in road.network.graph.keys():
