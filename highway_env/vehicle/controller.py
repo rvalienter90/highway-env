@@ -41,7 +41,7 @@ class ControlledVehicle(Vehicle):
                  route: Route = None,
                  config={},
                  id: int =0,):
-        super().__init__(road, position, heading, speed, config, id)
+        super().__init__(road, position, heading, speed, config=config, id=id)
         self.target_lane_index = target_lane_index or self.lane_index
         self.target_speed = target_speed or self.speed
         self.route = route
@@ -241,7 +241,10 @@ class MDPVehicle(ControlledVehicle):
                  config={},
                  id: int =0) -> None:
         super().__init__(road, position, heading, speed, target_lane_index, target_speed, route,config, id)
-
+        if config:
+            if "controlled_vehicle" in config:
+                self.SPEED_MIN = config["controlled_vehicle"]["min_speed"]
+                self.SPEED_MAX = config["controlled_vehicle"]["max_speed"]
         self.speed_index = self.speed_to_index(self.target_speed)
         self.target_speed = self.index_to_speed(self.speed_index)
         self.is_controlled = 1  # 1 agent, 0 human
@@ -255,16 +258,85 @@ class MDPVehicle(ControlledVehicle):
 
         :param action: a high-level action
         """
+        # TODO add a safety priotitizer , diff in learning and testing
+        # change vehicle action
+        self.safe_check = False
+        # self.new_action = None
         if action == "FASTER":
-            self.speed_index = self.speed_to_index(self.speed) + 1
+            if self.safe_check:
+                ego_vehicle = self
+                front_vehicle, rear_vehicle = self.road.neighbour_vehicles(self)
+                if front_vehicle:
+                    d = ego_vehicle.lane_distance_to(front_vehicle)
+                    desired_gap = self.desired_gap_safe_check(ego_vehicle, front_vehicle)
+                    marging = 0.5
+                    gap_difference = d - desired_gap
+                    if gap_difference > 0:
+                        # Faster
+                        self.speed_index = self.speed_to_index(self.speed) + 1
+                    elif gap_difference < 0 and gap_difference > -marging:
+                        # Iddle
+                        self.speed_index = self.speed_to_index(self.speed)
+                        self.new_action = "IDLE"
+                    else:
+                        # Slower
+                        self.speed_index = self.speed_to_index(self.speed) - 1
+                        self.new_action = "SLOWER"
+                else:
+                    self.speed_index = self.speed_to_index(self.speed) + 1
+            else:
+                self.speed_index = self.speed_to_index(self.speed) + 1
         elif action == "SLOWER":
-            self.speed_index = self.speed_to_index(self.speed) - 1
+            if self.safe_check:
+                ego_vehicle = self
+                front_vehicle, rear_vehicle = self.road.neighbour_vehicles(self)
+                if rear_vehicle:
+                    d = ego_vehicle.lane_distance_to(rear_vehicle)
+                    desired_gap = self.desired_gap_safe_check(rear_vehicle, ego_vehicle)
+                    marging = 0.5
+                    gap_difference = abs(d) - desired_gap
+                    if gap_difference > 0:
+                        # Slower
+                        self.speed_index = self.speed_to_index(self.speed) - 1
+                    elif gap_difference < 0 and gap_difference > -marging:
+                        # Iddle
+                        self.speed_index = self.speed_to_index(self.speed)
+                        self.new_action = "IDLE"
+                    else:
+                        # faster
+                        self.speed_index = self.speed_to_index(self.speed) + 1
+                        self.new_action = "FASTER"
+                else:
+                    self.speed_index = self.speed_to_index(self.speed) - 1
+            else:
+                self.speed_index = self.speed_to_index(self.speed) - 1
         else:
             super().act(action)
             return
         self.speed_index = int(np.clip(self.speed_index, 0, self.SPEED_COUNT - 1))
         self.target_speed = self.index_to_speed(self.speed_index)
         super().act()
+
+
+
+    def desired_gap_safe_check(self, ego_vehicle: Vehicle, front_vehicle: Vehicle = None) -> float:
+        """
+        Compute the desired distance between a vehicle and its leading vehicle.
+
+        :param ego_vehicle: the vehicle being controlled
+        :param front_vehicle: its leading vehicle
+        :return: the desired distance between the two [m]
+        """
+        # TODO SAFE CHECK parameters
+        # d0 = self.DISTANCE_WANTED
+        # tau = self.TIME_WANTED
+        # ab = -self.COMFORT_ACC_MAX * self.COMFORT_ACC_MIN
+        d0 = 2
+        tau = 0.1
+        ab = 9 * 12
+        dv = ego_vehicle.speed - front_vehicle.speed
+        d_star = d0 + ego_vehicle.speed * tau + ego_vehicle.speed * dv / (2 * np.sqrt(ab))
+        return d_star
 
     def index_to_speed(self, index: int) -> float:
         """

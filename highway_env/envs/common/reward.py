@@ -28,6 +28,7 @@ class RewardFactory():
         self.cooperative_flag = int(config['cooperative_flag'])
         self.sympathy_flag = config['sympathy_flag']
         self.cooperative_reward_value = config['cooperative_reward']
+        self.arrived_reward = config['arrived_reward']
         self.reward_info = []
         self.self_reward = 1
         self.AV_reward = 1
@@ -86,12 +87,22 @@ class RewardFactory():
         return np.mean(speeds)
 
     def cooperative_reward(self):
-        if self.coop_reward_type == "multi_agent_tuple":
-            return self._multi_agent_tuple_reward()
-        elif self.coop_reward_type == "linear_sum":
-            return self._linear_sum_reward()
-        elif self.coop_reward_type == "single_agent":
-            return self._single_agent_reward()
+        if  self.env.scenario.random_scenario:
+            if  self.env.scenario.road_type == "road_merge" or self.env.scenario.road_type == "road_exit":
+                return self._merging_reward()
+            elif self.env.scenario.road_type == "highway":
+                return self._highway_reward()
+            elif self.env.scenario.road_type == "intersection":
+                return self._intersection_reward()
+            elif self.env.scenario.road_type in ["roundabout","twoway","uturn"]:
+                return self._roundabout_reward()
+        else:
+            if self.coop_reward_type == "multi_agent_tuple":
+                return self._multi_agent_tuple_reward()
+            elif self.coop_reward_type == "linear_sum":
+                return self._linear_sum_reward()
+            elif self.coop_reward_type == "single_agent":
+                return self._single_agent_reward()
 
     def _single_agent_reward(self):
         if self.reward_type == "type_1":
@@ -101,6 +112,87 @@ class RewardFactory():
             return self._agent_reward_type_2(self.env.vehicle, self.action)
         elif self.reward_type == "type_3":
             return self._agent_reward_type_3(self.env.vehicle, self.action)
+
+    def _highway_reward(self):
+        reward = []
+        reward_info = []
+        if len(self.env.controlled_vehicles) > 1:
+            for _vehicle, _action in zip(self.env.controlled_vehicles, self.action):
+                rewardi, reward_infoi = self._agent_reward_highway_coop(_vehicle, _action)
+                reward.append(rewardi)
+                reward_info.append(reward_infoi)
+        # reward, reward_info = tuple(self._agent_reward_merging_reward(_vehicle, _action) for _vehicle, _action in
+        #              zip(self.env.controlled_vehicles, self.action))
+        # print(reward)
+            reward = tuple(reward)
+        else:
+            rewardi, reward_infoi = self._agent_reward_highway_coop(self.env.controlled_vehicles[0], self.action)
+            reward = rewardi
+            reward_info.append(reward_infoi)
+
+        self.reward_info = reward_info
+        return reward
+
+    def _intersection_reward(self):
+        reward = []
+        reward_info = []
+        if len(self.env.controlled_vehicles) > 1:
+            for _vehicle, _action in zip(self.env.controlled_vehicles, self.action):
+                rewardi, reward_infoi = self._agent_reward_intersection(_vehicle, _action)
+                reward.append(rewardi)
+                reward_info.append(reward_infoi)
+        # reward, reward_info = tuple(self._agent_reward_merging_reward(_vehicle, _action) for _vehicle, _action in
+        #              zip(self.env.controlled_vehicles, self.action))
+        # print(reward)
+            reward = tuple(reward)
+        else:
+            rewardi, reward_infoi = self._agent_reward_intersection(self.env.controlled_vehicles[0], self.action)
+            reward = rewardi
+            reward_info.append(reward_infoi)
+
+        self.reward_info = reward_info
+        return reward
+
+    def _roundabout_reward(self):
+        reward = []
+        reward_info = []
+        if len(self.env.controlled_vehicles) > 1:
+            for _vehicle, _action in zip(self.env.controlled_vehicles, self.action):
+                rewardi, reward_infoi = self._agent_reward_roundabout(_vehicle, _action)
+                reward.append(rewardi)
+                reward_info.append(reward_infoi)
+            # reward, reward_info = tuple(self._agent_reward_merging_reward(_vehicle, _action) for _vehicle, _action in
+            #              zip(self.env.controlled_vehicles, self.action))
+            # print(reward)
+            reward = tuple(reward)
+        else:
+            rewardi, reward_infoi = self._agent_reward_roundabout(self.env.controlled_vehicles[0], self.action)
+            reward = rewardi
+            reward_info.append(reward_infoi)
+
+        self.reward_info = reward_info
+        return reward
+
+    def _merging_reward(self):
+        reward = []
+        reward_info = []
+        if len(self.env.controlled_vehicles) > 1:
+            for _vehicle, _action in zip(self.env.controlled_vehicles, self.action):
+                rewardi, reward_infoi = self._agent_reward_merging_reward(_vehicle, _action)
+                reward.append(rewardi)
+                reward_info.append(reward_infoi)
+            reward = tuple(reward)
+        else:
+
+            rewardi, reward_infoi = self._agent_reward_merging_reward(self.env.controlled_vehicles[0], self.action)
+            reward = rewardi
+            reward_info.append(reward_infoi)
+        # reward, reward_info = tuple(self._agent_reward_merging_reward(_vehicle, _action) for _vehicle, _action in
+        #              zip(self.env.controlled_vehicles, self.action))
+        # print(reward)
+
+        self.reward_info = reward_info
+        return reward
 
     def _multi_agent_tuple_reward(self):
         if self.reward_type == "type_1":
@@ -206,7 +298,8 @@ class RewardFactory():
         neighbours = self.env.road.network.all_side_lanes(vehicle.lane_index)
         lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
             else vehicle.lane_index[2]
-        scaled_speed = utils.lmap(vehicle.speed, self.reward_speed_range, [0, 1])
+        reward_speed_range = [vehicle.SPEED_MIN,vehicle.SPEED_MAX]
+        scaled_speed = utils.lmap(vehicle.speed,reward_speed_range , [0, 1])
 
         # TODO: this must be read from action.py, to determine if it is a lane change or not,
         #  for now it's hard-coded to 0 and 2
@@ -216,8 +309,9 @@ class RewardFactory():
         on_desired_lane_reward_value = self.on_desired_lane_reward * lane / max(len(neighbours) - 1, 1)
         high_speed_reward_value = self.high_speed_reward * np.clip(scaled_speed, 0, 1)
         lane_change_reward_value = self.lane_change_reward * lane_change
-        cooperative_reward_value_avg_speeds = self.cooperative_reward_value * \
-                                              np.clip(self.avg_speeds, 0, 1)
+        # cooperative_reward_value_avg_speeds = self.cooperative_reward_value * \
+        #                                       np.clip(self.avg_speeds, 0, 1)
+        cooperative_reward_value_avg_speeds =0
         reward = \
             collision_reward_value \
             + on_desired_lane_reward_value \
@@ -245,6 +339,95 @@ class RewardFactory():
 
         return reward,reward_info
 
+    def _agent_reward_roundabout(self, vehicle, action):
+        neighbours = self.env.road.network.all_side_lanes(vehicle.lane_index)
+        lane_change = action == 0 or action == 2
+
+        reward_speed_range = [vehicle.SPEED_MIN, vehicle.SPEED_MAX]
+        scaled_speed = utils.lmap(vehicle.speed, reward_speed_range, [0, 1])
+
+
+
+
+        collision_reward_value = self.collision_reward * vehicle.crashed
+        high_speed_reward_value = self.high_speed_reward * np.clip(scaled_speed, 0, 1)
+        lane_change_reward_value = self.lane_change_reward * lane_change
+
+        # cooperative_reward_value_avg_speeds = self.cooperative_reward_value * \
+        #                                       np.clip(self.avg_speeds, 0, 1)
+        cooperative_reward_value_avg_speeds =0
+        reward = \
+            collision_reward_value \
+            + high_speed_reward_value \
+            + cooperative_reward_value_avg_speeds\
+            + lane_change_reward_value
+
+
+        if self.normalize_reward:
+            reward = utils.lmap(reward, [self.collision_reward +self.lane_change_reward, self.high_speed_reward], [0, 1])
+
+        # reward = 0 if not vehicle.on_road else reward
+
+        reward_info = {"reward_crashed": collision_reward_value,
+                       "reward_on_lane": 0,
+                       "reward_scaled_speed": high_speed_reward_value,
+                       "reward_lane_change": lane_change_reward_value,
+                       "reward_distance": 0,
+                       "reward_avg_speeds": cooperative_reward_value_avg_speeds,
+                       "reward_has_merged": 0,
+                       "reward_distance_merge_vehicle": 0,
+                       # "normalized_timestep_reward": reward
+                       # "vehilce_id": vehicle.id
+                       }
+
+        return reward,reward_info
+
+
+    def _agent_reward_intersection(self, vehicle, action):
+        """
+               The reward is defined to foster driving at high speed, on the rightmost lanes, and to avoid collisions.
+               :param action: the last action performed
+               :return: the corresponding reward
+               """
+        neighbours = self.env.road.network.all_side_lanes(vehicle.lane_index)
+        reward_speed_range = [vehicle.SPEED_MIN, vehicle.SPEED_MAX]
+        scaled_speed = utils.lmap(vehicle.speed, reward_speed_range, [0, 1])
+
+
+
+        collision_reward_value = self.collision_reward * vehicle.crashed
+        high_speed_reward_value = self.high_speed_reward * np.clip(scaled_speed, 0, 1)
+        arrived_reward_value = self.arrived_reward if self.env.has_arrived_intersection(vehicle) else 0
+
+        # cooperative_reward_value_avg_speeds = self.cooperative_reward_value * \
+        #                                       np.clip(self.avg_speeds, 0, 1)
+        cooperative_reward_value_avg_speeds =0
+        reward = \
+            collision_reward_value \
+            + high_speed_reward_value \
+            + cooperative_reward_value_avg_speeds\
+            + arrived_reward_value
+
+
+        if self.normalize_reward:
+            reward = utils.lmap(reward, [self.collision_reward , self.high_speed_reward +
+                                         self.arrived_reward], [0, 1])
+
+        reward = 0 if not vehicle.on_road else reward
+
+        reward_info = {"reward_crashed": collision_reward_value,
+                       "reward_on_lane": 0,
+                       "reward_scaled_speed": high_speed_reward_value,
+                       "reward_lane_change": 0,
+                       "reward_distance": 0,
+                       "reward_avg_speeds": cooperative_reward_value_avg_speeds,
+                       "reward_has_merged": 0,
+                       "reward_distance_merge_vehicle": 0,
+                       # "normalized_timestep_reward": reward
+                       # "vehilce_id": vehicle.id
+                       }
+
+        return reward,reward_info
     def _agent_reward_type_1(self, vehicle, action):
         """
                The reward is defined to foster driving at high speed, on the rightmost lanes, and to avoid collisions.
@@ -330,7 +513,9 @@ class RewardFactory():
 
         lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
             else vehicle.lane_index[2]
-        scaled_speed = utils.lmap(vehicle.speed, self.reward_speed_range, [0, 1])
+        reward_speed_range = [vehicle.SPEED_MIN, vehicle.SPEED_MAX]
+        scaled_speed = utils.lmap(vehicle.speed, reward_speed_range, [0, 1])
+        # scaled_speed = utils.lmap(vehicle.speed, self.reward_speed_range, [0, 1])
 
         # TODO: this must be read from action.py, to determine if it is a lane change or not,
         #  for now it's hard-coded to 0 and 2
@@ -433,7 +618,9 @@ class RewardFactory():
 
         lane = vehicle.target_lane_index[2] if isinstance(vehicle, ControlledVehicle) \
             else vehicle.lane_index[2]
-        scaled_speed = utils.lmap(vehicle.speed, self.reward_speed_range, [0, 1])
+        reward_speed_range = [vehicle.SPEED_MIN, vehicle.SPEED_MAX]
+        scaled_speed = utils.lmap(vehicle.speed, reward_speed_range, [0, 1])
+        # scaled_speed = utils.lmap(vehicle.speed, self.reward_speed_range, [0, 1])
 
         # TODO: this must be read from action.py, to determine if it is a lane change or not,
         #  for now it's hard-coded to 0 and 2

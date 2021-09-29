@@ -246,6 +246,7 @@ class OccupancyGridObservation(ObservationType):
                  grid_step: Optional[Tuple[float, float]] = None,
                  features_range: Dict[str, List[float]] = None,
                  absolute: bool = False,
+                 normalize: bool = False,
                  align_to_vehicle_axes: bool = False,
                  clip: bool = True,
                  as_image: bool = False,
@@ -272,6 +273,7 @@ class OccupancyGridObservation(ObservationType):
         self.align_to_vehicle_axes = align_to_vehicle_axes
         self.clip = clip
         self.as_image = as_image
+        self.normalize = normalize
 
     def space(self) -> spaces.Space:
         if self.as_image:
@@ -310,17 +312,19 @@ class OccupancyGridObservation(ObservationType):
             df = pd.DataFrame.from_records(
                 [v.to_dict(self.observer_vehicle) for v in self.env.road.vehicles])
             # Normalize
-            df = self.normalize(df)
+            if self.normalize:
+                df = self.normalize(df)
             # Fill-in features
             for layer, feature in enumerate(self.features):
                 if feature in df.columns:  # A vehicle feature
                     for _, vehicle in df.iterrows():
                         x, y = vehicle["x"], vehicle["y"]
                         # Recover unnormalized coordinates for cell index
-                        if "x" in self.features_range:
-                            x = utils.lmap(x, [-1, 1], [self.features_range["x"][0], self.features_range["x"][1]])
-                        if "y" in self.features_range:
-                            y = utils.lmap(y, [-1, 1], [self.features_range["y"][0], self.features_range["y"][1]])
+                        if self.normalize:
+                            if "x" in self.features_range:
+                                x = utils.lmap(x, [-1, 1], [self.features_range["x"][0], self.features_range["x"][1]])
+                            if "y" in self.features_range:
+                                y = utils.lmap(y, [-1, 1], [self.features_range["y"][0], self.features_range["y"][1]])
                         cell = self.pos_to_index((x, y), relative=not self.absolute)
                         if 0 <= cell[1] < self.grid.shape[-2] and 0 <= cell[0] < self.grid.shape[-1]:
                             self.grid[layer, cell[1], cell[0]] = vehicle[feature]

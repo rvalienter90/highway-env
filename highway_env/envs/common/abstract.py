@@ -180,6 +180,7 @@ class AbstractEnv(gym.Env):
             "crashed": self.vehicle.crashed,
             "action": action,
 
+            'episode': self.episode,
             'timestep': self.steps,
             'vehicle_ids': [],
             'vehicle_is_controlled': [],

@@ -232,6 +232,8 @@ class DiscreteMetaAction(ActionType):
 
     def act(self, action: int) -> None:
         self.controlled_vehicle.act(self.actions[int(action)])
+        if self.controlled_vehicle.new_action:
+            self.controlled_vehicle.new_action = self.actions_indexes[self.controlled_vehicle.new_action]
 
 
 class MultiAgentAction(ActionType):
@@ -263,11 +265,11 @@ class MultiAgentAction(ActionType):
 
 def action_factory(env: 'AbstractEnv', config: dict) -> ActionType:
     if config["type"] == "ContinuousAction":
-        return ContinuousAction(env, **config)
+        return ContinuousAction(env, **config["action_config"])
     if config["type"] == "DiscreteAction":
-        return DiscreteAction(env, **config)
+        return DiscreteAction(env, **config["action_config"])
     elif config["type"] == "DiscreteMetaAction":
-        return DiscreteMetaAction(env, **config)
+        return DiscreteMetaAction(env, **config["action_config"])
     elif config["type"] == "MultiAgentAction":
         return MultiAgentAction(env, **config)
     else:

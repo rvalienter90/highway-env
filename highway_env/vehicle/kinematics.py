@@ -55,7 +55,7 @@ class Vehicle(RoadObject):
 
 
     @classmethod
-    def make_on_lane(cls, road: Road, lane_index: LaneIndex, longitudinal: float, speed: float = 0) -> "Vehicle":
+    def make_on_lane(cls, road: Road, lane_index: LaneIndex, longitudinal: float, speed: float = 0,id=0) -> "Vehicle":
         """
         Create a vehicle on a given lane at a longitudinal position.
 
@@ -68,7 +68,7 @@ class Vehicle(RoadObject):
         lane = road.network.get_lane(lane_index)
         if speed is None:
             speed = lane.speed_limit
-        return cls(road, lane.position(longitudinal, 0), lane.heading_at(longitudinal), speed)
+        return cls(road, lane.position(longitudinal, 0), lane.heading_at(longitudinal), speed,id=id)
 
     @classmethod
     def create_random(cls, road: Road, speed: float = None, lane_id: Optional[int] = None, spacing: float = 1, id=0) \

@@ -81,13 +81,54 @@ class MultiEnv(AbstractEnv):
         self.merged_counter = 0
         self.mission_type = MissionFactory(self)
         scenario = Scenario(self, scenario_number=self.config['scenario']['scenario_number'])
+        self.scenario = scenario
         self.road = scenario.road
-        self.road.options = self.options
+        self.road.option = self.options
         # self.road.training = self.training
         if "observation_config" in self.config["observation"]:
             if self.config["observation"]["observation_config"]["type"] == "HeatmapObservation":
                 self.road_layout = self._get_road_layout()
         self.controlled_vehicles = scenario.controlled_vehicles
+
+    def step(self, action: int) -> Tuple[np.ndarray, float, bool, dict]:
+        obs, reward, done, info = super().step(action)
+        if self.scenario.road_type == "intersection":
+            self._clear_vehicles_intersection()
+            self._spawn_vehicle_intersection(spawn_probability=self.config["scenario"]["intersection"]["spawn_probability"])
+        return obs, reward, done, info
+
+    def _clear_vehicles_intersection(self) -> None:
+        is_leaving = lambda vehicle: "il" in vehicle.lane_index[0] and "o" in vehicle.lane_index[1] \
+                                     and vehicle.lane.local_coordinates(vehicle.position)[0] \
+                                     >= vehicle.lane.length - 4 * vehicle.LENGTH
+        self.road.vehicles = [vehicle for vehicle in self.road.vehicles if
+                              vehicle in self.controlled_vehicles or not (is_leaving(vehicle) or vehicle.route is None)]
+
+    def _spawn_vehicle_intersection(self,
+                                    longitudinal: float = 0,
+                                    position_deviation: float = 1.,
+                                    speed_deviation: float = 1.,
+                                    spawn_probability: float = 1,
+                                    go_straight: bool = False) -> None:
+        if self.np_random.rand() > spawn_probability:
+            return
+
+        route = self.np_random.choice(range(4), size=2, replace=False)
+        route[1] = (route[0] + 2) % 4 if go_straight else route[1]
+
+        baseline_vehicle = utils.class_from_path(self.scenario.baseline_vehicle["vehicles_type"])
+
+        vehicle_type = baseline_vehicle
+        vehicle = vehicle_type.make_on_lane(self.road, ("o" + str(route[0]), "ir" + str(route[0]), 0),
+                                            longitudinal=longitudinal + 5 + self.np_random.randn() * position_deviation,
+                                            speed=8 + self.np_random.randn() * speed_deviation)
+        for v in self.road.vehicles:
+            if np.linalg.norm(v.position - vehicle.position) < 25:
+                return
+        vehicle.plan_route_to("o" + str(route[1]))
+        # vehicle.randomize_behavior()
+        self.road.vehicles.append(vehicle)
+        return vehicle
 
     def _reward(self, action: int):
         # Cooperative multi-agent reward
@@ -104,22 +145,36 @@ class MultiEnv(AbstractEnv):
         # return self.vehicle.crashed or \
         #     self.steps >= self.config["duration"] or \
         #     (self.config["offroad_terminal"] and not self.vehicle.on_road)
-
-        cooperative_flag = self.config["reward"]['cooperative_flag']
-        sympathy_flag = self.config["reward"]['sympathy_flag']
-        if (cooperative_flag and sympathy_flag)  or self.training == False:
-            # testi = 1
-            return any(vehicle.crashed for vehicle in self.road.vehicles) \
-                   or self.steps >= self.config["duration"] \
-                   or (self.config["offroad_terminal"] and not self.vehicle.on_road)
-                   # or self.steps >= self.config["duration"] * self.config["policy_frequency"] \
+        if self.scenario.road_type == "intersection" or self.scenario.road_type == "roundabout" :
+            return any(vehicle.crashed for vehicle in self.controlled_vehicles) \
+                   or self.steps >= self.config["duration"]
+                   # or all(self.has_arrived_intersection(vehicle) for vehicle in self.controlled_vehicles) \
 
         else:
-            # TODO improve for coop
-            # testi=1
-            return any(vehicle.crashed for vehicle in self.controlled_vehicles) \
-                   or self.steps >= self.config["duration"] \
-                   or (self.config["offroad_terminal"] and not self.vehicle.on_road)
+            cooperative_flag = self.config["reward"]['cooperative_flag']
+            sympathy_flag = self.config["reward"]['sympathy_flag']
+            if (cooperative_flag and sympathy_flag)  or self.training == False:
+                # testi = 1
+                return any(vehicle.crashed for vehicle in self.road.vehicles) \
+                       or self.steps >= self.config["duration"] \
+                       or (self.config["offroad_terminal"] and not self.vehicle.on_road)
+                       # or self.steps >= self.config["duration"] * self.config["policy_frequency"] \
+
+            else:
+                # TODO improve for coop
+                # testi=1
+                return any(vehicle.crashed for vehicle in self.controlled_vehicles) \
+                       or self.steps >= self.config["duration"] \
+                       or (self.config["offroad_terminal"] and not self.vehicle.on_road)
+
+    def has_arrived_intersection(self, vehicle: Vehicle, exit_distance: float = 80) -> bool:
+        arrived ="il" in vehicle.lane_index[0] \
+               and "o" in vehicle.lane_index[1] \
+               and vehicle.lane.local_coordinates(vehicle.position)[0] >= exit_distance
+        if arrived:
+            print("has arrived!!")
+        return  arrived
+
 
     def _cost(self, action: int) -> float:
         """The cost signal is the occurrence of collision."""

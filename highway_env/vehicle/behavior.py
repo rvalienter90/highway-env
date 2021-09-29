@@ -349,6 +349,7 @@ class CustomVehicle(IDMVehicle):
             length = config[v_type]['length']
             width = config[v_type]['width']
             max_speed = config[v_type]['max_speed']
+            min_speed = config[v_type]['min_speed']
             # speed_min
             # speed_max
 
