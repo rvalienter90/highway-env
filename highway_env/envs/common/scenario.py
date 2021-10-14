@@ -14,16 +14,17 @@ import random
 import copy
 
 
-
 class Scenario:
     def __init__(self, env, scenario_number=0):
         self.env = env
         self.env.default_config = copy.deepcopy(env.config)
         self.road = None
         self.controlled_vehicles = None
-        self.road_types = ["intersection", "roundabout", "highway","twoway","uturn","road_merge","road_exit"]
-        # self.road_types = ["highway"]
-
+        # self.road_types = ["intersection", "roundabout", "highway","twoway","uturn","road_merge","road_exit"]
+        self.road_types = self.env.config['scenario']['road_types']
+        # self.road_types = ["road_exit"]
+        self.complex = self.env.config['scenario']['complex']
+        self.simple = self.env.config['scenario']['simple']
         self.road_types_idx = -1
         # self.road_missions = ["merging","exit"]
         if scenario_number != 0:
@@ -67,6 +68,7 @@ class Scenario:
             self.env.config['scenario']['mission_type'] = self.mission_type
         else:
             self.road_type = self.env.config['scenario']['road_type']
+
 
         random_offset = copy.deepcopy(self.env.config['scenario']['random_offset'])
         delta_before, delta_converging, delta_merge = (0, 0, 0)
@@ -931,14 +933,21 @@ class Scenario:
         # TODO check everytime we cahnge a var
         initial_position = self.merging_vehicle['initial_position']
 
+        if self.complex:
+            self.merging_vehicle['randomize'] = True
+            # self.merging_vehicle['random_offset_merging'] = [-20,20]
+            self.merging_vehicle['random_offset_merging'] = [-100,50]
+            self.merging_vehicle['randomize_speed_merging'] = True
+            self.randomize_speed_offset =[-5,5]
+
         if self.merging_vehicle['randomize']:
             random_offset = self.merging_vehicle['random_offset_merging']
-            # delta = np.random.randint(low=random_offset[0], high=random_offset[1])
-            delta = np.random.normal(0, random_offset[1] / 3)
+            delta = np.random.randint(low=random_offset[0], high=random_offset[1])
+            # delta = np.random.normal(0, random_offset[1] / 3)
             if delta > 0:
                 delta = min(delta, random_offset[1])
             else:
-                delta = max(delta, -random_offset[1])
+                delta = max(delta, random_offset[0])
 
             initial_position[0] += delta
             initial_position[0] = max(0, initial_position[0])
@@ -948,12 +957,12 @@ class Scenario:
         if self.merging_vehicle['randomize_speed_merging']:
             # speed = road.np_random.uniform(Vehicle.DEFAULT_SPEEDS[0], Vehicle.DEFAULT_SPEEDS[1])
             random_offset = self.randomize_speed_offset
-            # delta = np.random.randint(low=random_offset[0], high=random_offset[1])
-            delta = np.random.normal(0, random_offset[1]/3)
+            delta = np.random.randint(low=random_offset[0], high=random_offset[1])
+            # delta = np.random.normal(0, random_offset[1]/3)
             if delta > 0:
                 delta = min(delta,random_offset[1])
             else:
-                delta = max(delta, -random_offset[1])
+                delta = max(delta, random_offset[0])
 
             speed += delta
             speed = max(0, speed)
@@ -1169,20 +1178,24 @@ class Scenario:
         speed = self.exit_vehicle['speed']
         initial_position = self.exit_vehicle['initial_position']
         route = None
+        if self.complex:
+            self.exit_vehicle['randomize'] = True
+            self.exit_vehicle['random_offset_exit'] =[-100,50]
+            # self.exit_vehicle['random_offset_exit'] =[-30,30]
 
         if self.exit_vehicle['randomize']:
             episode = self.env.episode
-            initial_positions=[69,74]
+            # initial_positions=[69,74]
             # idx = episode % 2
 
-            if episode%150 ==0:
-                idx = 1
-            else:
-                idx =0
-            initial_position[0] = initial_positions[idx]
+            # if episode%150 ==0:
+            #     idx = 1
+            # else:
+            #     idx =0
+            # initial_position[0] = initial_positions[idx]
 
             random_offset = self.exit_vehicle['random_offset_exit']
-            delta = np.random.randint(low=-random_offset[0], high=random_offset[1])
+            delta = np.random.randint(low=random_offset[0], high=random_offset[1])
             # delta = np.random.normal(0, random_offset[1] / 3)
             # if delta > 0:
             #     delta = min(delta, random_offset[1])
@@ -1359,6 +1372,12 @@ class Scenario:
         vehicle_id = 1
         # Random vehicles
         simulation_steps = 3
+        # vehicle_count = self.cruising_vehicles_count
+        if self.complex:
+            self.cruising_vehicles_count = self.cruising_vehicles_count + 3
+        if self.simple:
+            self.cruising_vehicles_count =6
+            self.env.config["scenario"]["intersection"]["spawn_probability"] = 0.4
         for t in range(self.cruising_vehicles_count - 1):
             self._spawn_vehicle_intersection(np.linspace(0, 140, self.cruising_vehicles_count)[t],vehicle_id=vehicle_id,spawn_probability=self.scenario_config["intersection"]["spawn_probability"])
             vehicle_id += 1
@@ -1554,11 +1573,16 @@ class Scenario:
         self.road.vehicles.append(vehicle)
 
         # Other vehicles
-        for i in list(range(1, 4)) + list(range(-3, 0)):
+        n = 4
+        if self.complex:
+            n=5
+        if self.simple:
+            n = 2
+        for i in list(range(1, n)) + list(range(-n+1, 0)):
             vehicle = vehicle_type.make_on_lane(self.road,
-                                                       ("we", "sx", 0),
-                                                       longitudinal=20 * i + self.np_random.randn() * position_deviation,
-                                                       speed=16 + self.np_random.randn() * speed_deviation,id=vehicle_id)
+                                                ("we", "sx", 0),
+                                                longitudinal=20 * i + self.np_random.randn() * position_deviation,
+                                                speed=16 + self.np_random.randn() * speed_deviation, id=vehicle_id)
             vehicle.plan_route_to(self.np_random.choice(destinations))
             # vehicle.randomize_behavior()
             safe = True
@@ -1569,7 +1593,6 @@ class Scenario:
             if safe:
                 self.road.vehicles.append(vehicle)
                 vehicle_id += 1
-
         # Entering vehicle
         vehicle = vehicle_type.make_on_lane(self.road,
                                                    ("eer", "ees", 0),

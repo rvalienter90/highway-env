@@ -133,7 +133,8 @@ class MultiEnv(AbstractEnv):
     def _reward(self, action: int):
         # Cooperative multi-agent reward
         reward_type = RewardFactory(self, action, self.config["reward"])
-        calculated_reward = reward_type.cooperative_reward()
+        # calculated_reward = reward_type.cooperative_reward()
+        calculated_reward = reward_type.general_reward_simple()
         self.reward_info = reward_type.reward_info
 
         return calculated_reward

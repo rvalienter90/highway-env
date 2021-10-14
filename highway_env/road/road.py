@@ -310,7 +310,8 @@ class Road(object):
                     and (see_behind or -2 * vehicle.LENGTH < vehicle.lane_distance_to(v))]
 
         if sort:
-            vehicles = sorted(vehicles, key=lambda v: abs(vehicle.lane_distance_to(v)))
+            # vehicles = sorted(vehicles, key=lambda v: abs(vehicle.lane_distance_to(v)))
+            vehicles = sorted(vehicles, key=lambda v: abs(np.linalg.norm(v.position - vehicle.position)))
         if count:
             vehicles = vehicles[:count]
         return vehicles

@@ -339,6 +339,58 @@ class RewardFactory():
 
         return reward,reward_info
 
+    def general_reward_simple(self):
+        reward = []
+        reward_info = []
+        rewardi, reward_infoi = self._agent_reward_simple(self.env.controlled_vehicles[0], self.action)
+        reward = rewardi
+        reward_info.append(reward_infoi)
+
+        self.reward_info = reward_info
+        return reward
+
+    def _agent_reward_simple(self, vehicle, action):
+        """
+               The reward is defined to foster driving at high speed, on the rightmost lanes, and to avoid collisions.
+               :param action: the last action performed
+               :return: the corresponding reward
+               """
+        reward_speed_range = [vehicle.SPEED_MIN,vehicle.SPEED_MAX]
+        scaled_speed = utils.lmap(vehicle.speed,reward_speed_range , [0, 1])
+
+        collision_reward = -2
+        high_speed_reward = 1
+        destination_reward = 4
+        collision_reward_value = collision_reward * vehicle.crashed
+        high_speed_reward_value = high_speed_reward * np.clip(scaled_speed, 0, 1)
+        final_steps = self.env.steps >= self.env.config["duration"] -1
+        arrive_destination = True if final_steps else False
+        destination_reward_value = destination_reward*arrive_destination
+        reward = \
+            collision_reward_value \
+            + high_speed_reward_value \
+            + destination_reward_value
+
+
+        if self.normalize_reward:
+            reward = utils.lmap(reward, [collision_reward, high_speed_reward + destination_reward], [0, 1])
+
+        # reward = 0 if not vehicle.on_road else reward
+
+        reward_info = {"reward_crashed": collision_reward_value,
+                       "reward_on_lane": 0,
+                       "reward_scaled_speed": high_speed_reward_value,
+                       "reward_lane_change": 0,
+                       "reward_distance": 0,
+                       "reward_avg_speeds": 0,
+                       "reward_has_merged": 0,
+                       "reward_distance_merge_vehicle": 0,
+                       # "normalized_timestep_reward": reward
+                       # "vehilce_id": vehicle.id
+                       }
+
+        return reward,reward_info
+
     def _agent_reward_roundabout(self, vehicle, action):
         neighbours = self.env.road.network.all_side_lanes(vehicle.lane_index)
         lane_change = action == 0 or action == 2
