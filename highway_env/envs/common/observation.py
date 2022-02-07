@@ -15,7 +15,7 @@ from PIL import Image
 from skimage.transform import resize
 
 from skimage.transform import downscale_local_mean
-from Autoencoder.autoencoder import Autoencoder , DeepAutoencoder
+# from Autoencoder.autoencoder import Autoencoder , DeepAutoencoder
 
 
 if TYPE_CHECKING:

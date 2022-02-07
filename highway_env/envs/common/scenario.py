@@ -23,8 +23,10 @@ class Scenario:
         # self.road_types = ["intersection", "roundabout", "highway","twoway","uturn","road_merge","road_exit"]
         self.road_types = self.env.config['scenario']['road_types']
         # self.road_types = ["road_exit"]
-        self.complex = self.env.config['scenario']['complex']
-        self.simple = self.env.config['scenario']['simple']
+        # self.complex = self.env.config['scenario']['complex']
+        # self.simple = self.env.config['scenario']['simple']
+        self.complex = False
+        self.simple = False
         self.road_types_idx = -1
         # self.road_missions = ["merging","exit"]
         if scenario_number != 0:
