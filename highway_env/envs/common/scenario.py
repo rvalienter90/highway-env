@@ -15,7 +15,7 @@ import copy
 
 
 class Scenario:
-    def __init__(self, env, scenario_number=0):
+    def __init__(self, env, scenario_number=0,complex=False,simple=False):
         self.env = env
         self.env.default_config = copy.deepcopy(env.config)
         self.road = None
